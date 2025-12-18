@@ -1,0 +1,164 @@
+@model SpaBookingWeb.ViewModels.Manager.CustomerDashboardViewModel
+
+@{
+    ViewData["Title"] = "Quản Lý Khách Hàng";
+    Layout = "~/Areas/Manager/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-12">
+            <!-- Header Section with Create Button -->
+            <div class="row align-items-center mb-4">
+                <div class="col">
+                    <h2 class="h3 page-title">Tổng Quan Khách Hàng</h2>
+                    <p class="text-muted mb-0">Báo cáo hiệu suất và danh sách khách hàng tháng @DateTime.Now.Month/@DateTime.Now.Year</p>
+                </div>
+                <div class="col-auto">
+                    <a asp-action="Create" class="btn btn-primary">
+                        <span class="fe fe-plus fe-16 mr-2"></span>Thêm Khách Hàng
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Statistical Cards -->
+            <div class="row my-4">
+                <div class="col-md-6 col-xl-3 mb-4">
+                    <div class="card shadow border-0">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-3 text-center">
+                                    <span class="circle circle-sm bg-primary-light">
+                                        <i class="fe fe-16 fe-users text-white mb-0"></i>
+                                    </span>
+                                </div>
+                                <div class="col pr-0">
+                                    <p class="small text-muted mb-0">Tổng Khách Hàng</p>
+                                    <span class="h3 mb-0">@Model.TotalCustomers</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3 mb-4">
+                    <div class="card shadow border-0">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-3 text-center">
+                                    <span class="circle circle-sm bg-success-light">
+                                        <i class="fe fe-16 fe-check-circle text-white mb-0"></i>
+                                    </span>
+                                </div>
+                                <div class="col pr-0">
+                                    <p class="small text-muted mb-0">Lượt Ghé Tháng Này</p>
+                                    <span class="h3 mb-0">@Model.TotalVisitsThisMonth</span>
+                                    <span class="small text-muted">(@(Model.GrowthRate > 0 ? "+" : "")@Model.GrowthRate%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3 mb-4">
+                    <div class="card shadow border-0">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-3 text-center">
+                                    <span class="circle circle-sm bg-warning-light">
+                                        <i class="fe fe-16 fe-refresh-cw text-white mb-0"></i>
+                                    </span>
+                                </div>
+                                <div class="col pr-0">
+                                    <p class="small text-muted mb-0">Tỉ Lệ Quay Lại</p>
+                                    <span class="h3 mb-0">@Model.ReturnRateThisMonth%</span>
+                                    <span class="small text-muted">vs @Model.ReturnRateLastMonth% trước</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3 mb-4">
+                    <div class="card shadow border-0">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-3 text-center">
+                                    <span class="circle circle-sm bg-danger-light">
+                                        <i class="fe fe-16 fe-x-circle text-white mb-0"></i>
+                                    </span>
+                                </div>
+                                <div class="col pr-0">
+                                    <p class="small text-muted mb-0">Đơn Hủy</p>
+                                    <span class="h3 mb-0">@Model.CancelledOrdersThisMonth</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- end section -->
+
+            <!-- Customer Table -->
+            <div class="row my-4">
+                <div class="col-md-12">
+                    <div class="card shadow">
+                        <div class="card-body">
+                            <h5 class="card-title">Danh Sách Khách Hàng</h5>
+                            <table class="table datatables" id="dataTable-1">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Họ Tên</th>
+                                        <th>Email</th>
+                                        <th>SĐT</th>
+                                        <th>Hành Động</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Model.Customers)
+                                    {
+                                        <tr>
+                                            <td>@item.Id.Substring(0, 8)...</td>
+                                            <td>
+                                                <div class="avatar avatar-sm mr-2 d-inline-block">
+                                                    <img src="~/ManagerAssets/assets/avatars/face-1.jpg" alt="..." class="avatar-img rounded-circle">
+                                                </div>
+                                                @item.FullName
+                                            </td>
+                                            <td>@item.Email</td>
+                                            <td>@item.PhoneNumber</td>
+                                            <td>
+                                                <div class="dropdown">
+                                                    <button class="btn btn-sm dropdown-toggle" type="button" id="dr1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                        <span class="text-muted sr-only">Action</span>
+                                                    </button>
+                                                    <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dr1">
+                                                        <a class="dropdown-item" asp-action="Edit" asp-route-id="@item.Id">Sửa</a>
+                                                        <a class="dropdown-item" asp-action="Detail" asp-route-id="@item.Id">Chi tiết</a>
+                                                        <a class="dropdown-item text-danger" asp-action="Delete" asp-route-id="@item.Id">Xóa</a>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div> <!-- simple table -->
+            </div> <!-- end section -->
+        </div> <!-- .col-12 -->
+    </div> <!-- .row -->
+</div> <!-- .container-fluid -->
+
+@section Scripts {
+    <script src="~/ManagerAssets/js/jquery.dataTables.min.js"></script>
+    <script src="~/ManagerAssets/js/dataTables.bootstrap4.min.js"></script>
+    <script>
+      $('#dataTable-1').DataTable(
+      {
+        autoWidth: true,
+        "lengthMenu": [
+          [16, 32, 64, -1],
+          [16, 32, 64, "All"]
+        ]
+      });
+    </script>
+}

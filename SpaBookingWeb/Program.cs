@@ -4,6 +4,7 @@ using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pag
 using SpaBookingWeb.Data;
 using SpaBookingWeb.Models;
 using SpaBookingWeb.Services;
+using SpaBookingWeb.Services.Manager;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +34,13 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
         options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
     });
 
+
 builder.Services.AddScoped<MomoService,MomoService>();
+
+//Services Injection for Manager
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<IVoucherService, VoucherService>();
+
 
 builder.Services.AddControllersWithViews();
 

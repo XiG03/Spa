@@ -6,7 +6,7 @@ using SpaBookingWeb.Models;
 namespace SpaBookingWeb.Data
 {
     // Lưu ý: Đổi <Users> thành <ApplicationUser> nếu bạn dùng model tôi cung cấp trước đó
-    public class ApplicationDbContext : IdentityDbContext<ApplicationUser> 
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
@@ -39,6 +39,7 @@ namespace SpaBookingWeb.Data
         public DbSet<AppointmentConsumable> AppointmentConsumables { get; set; }
         public DbSet<Review> Reviews { get; set; }
         public DbSet<Salary> Salaries { get; set; }
+        public DbSet<Operations> Operations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -57,7 +58,7 @@ namespace SpaBookingWeb.Data
             builder.Entity<Employee>()
                 .HasIndex(e => e.IdentityUserId)
                 .IsUnique();
-            
+
             builder.Entity<Voucher>()
                 .HasIndex(v => v.Code)
                 .IsUnique();
@@ -74,7 +75,7 @@ namespace SpaBookingWeb.Data
                 .WithMany(a => a.AppointmentDetails)
                 .HasForeignKey(ad => ad.AppointmentId)
                 .OnDelete(DeleteBehavior.Cascade);
-                
+
             // Tắt cascade cho các quan hệ phụ để tránh lỗi SQL Server
             builder.Entity<AppointmentDetail>()
                 .HasOne(ad => ad.Technician)
