@@ -1,0 +1,117 @@
+﻿@model SpaBookingWeb.ViewModels.Manager.ComboViewModel
+
+@{
+    ViewData["Title"] = "Cập nhật Combo";
+    Layout = "~/Areas/Manager/Views/Shared/_Layout.cshtml";
+}
+
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 col-xl-8">
+            <h2 class="h3 mb-4 page-title">Cập nhật Combo</h2>
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <strong class="card-title">Thông tin Combo #@Model.ComboId</strong>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Edit" method="post" enctype="multipart/form-data">
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                        <!-- Hidden Fields: Quan trọng để giữ ID và ảnh cũ nếu không thay đổi -->
+                        <input type="hidden" asp-for="ComboId" />
+                        <input type="hidden" asp-for="ExistingImage" />
+
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label asp-for="ComboName" class="control-label">Tên Combo <span
+                                        class="text-danger">*</span></label>
+                                <input asp-for="ComboName" class="form-control" />
+                                <span asp-validation-for="ComboName" class="text-danger"></span>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label asp-for="Price" class="control-label">Giá Combo (VNĐ) <span
+                                        class="text-danger">*</span></label>
+                                <input asp-for="Price" class="form-control" type="number" />
+                                <span asp-validation-for="Price" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <!-- Dropdown Multi-Select -->
+                        <div class="form-group">
+                            <label asp-for="SelectedServiceIds" class="control-label">Các dịch vụ trong Combo (Có thể
+                                thay đổi) <span class="text-danger">*</span></label>
+                            <select asp-for="SelectedServiceIds" asp-items="Model.AvailableServices"
+                                class="form-control select2-multi" multiple="multiple" style="width: 100%;">
+                            </select>
+                            <span asp-validation-for="SelectedServiceIds" class="text-danger"></span>
+                            <small class="form-text text-muted">Thêm hoặc bỏ bớt dịch vụ trong danh sách này.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label">Hình ảnh</label>
+
+                            <!-- Hiển thị ảnh hiện tại -->
+                            <div class="mb-2 ">
+                                @if (!string.IsNullOrEmpty(Model.ExistingImage))
+                                {
+                                    <div class="p-2 border rounded d-inline-block bg-light">
+                                        <img src="@Model.ExistingImage" class="img-fluid"
+                                            style="max-height: 300px; object-fit: contain;" alt="Current Image" />
+                                        <div class="small text-muted mt-1 text-center">Ảnh hiện tại</div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="text-muted font-italic p-2 border rounded d-inline-block">Chưa có ảnh</div>
+                                }
+                            </div>
+
+                            <!-- Input chọn ảnh mới -->
+                            <div class="custom-file mt-2">
+                                <input asp-for="ImageFile" class="custom-file-input" id="customFile" accept="image/*">
+                                <label class="custom-file-label" for="customFile">Chọn ảnh mới (nếu muốn thay
+                                    đổi)...</label>
+                            </div>
+                            <span asp-validation-for="ImageFile" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label asp-for="Description" class="control-label">Mô tả</label>
+                            <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+                            <span asp-validation-for="Description" class="text-danger"></span>
+                        </div>
+
+                        <div class="mt-4 d-flex justify-content-end">
+                            <a asp-action="Index" class="btn btn-secondary mr-2">Hủy bỏ</a>
+                            <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    <script>
+        $(document).ready(function () {
+            // Hiển thị tên file khi chọn ảnh mới
+            $('.custom-file-input').on('change', function () {
+                var fileName = $(this).val().split('\\').pop();
+                $(this).next('.custom-file-label').addClass("selected").html(fileName);
+            });
+
+            // Select2 tự động nhận diện các giá trị đã chọn (selected) từ Model.SelectedServiceIds
+            // nhờ Tag Helper asp-for bind dữ liệu vào thẻ <select>
+            $('.select2-multi').select2({
+                theme: 'bootstrap4',
+                placeholder: "--- Chọn các dịch vụ ---",
+                allowClear: true,
+                width: '100%'
+            });
+        });
+    </script>
+}

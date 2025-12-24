@@ -40,6 +40,13 @@ builder.Services.AddScoped<MomoService,MomoService>();
 //Services Injection for Manager
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IVoucherService, VoucherService>();
+builder.Services.AddScoped<IServiceService, ServiceService>();
+builder.Services.AddScoped<IComboService, ComboService>();
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
+
+
+//Repository and UnitOfWork Injection
 
 
 builder.Services.AddControllersWithViews();

@@ -1,0 +1,55 @@
+﻿@model SpaBookingWeb.ViewModels.Manager.DailyScheduleViewModel
+
+@{
+    ViewData["Title"] = "Lịch làm việc hôm nay";
+    Layout = "~/Areas/Manager/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="page-title">Lịch làm việc - @Model.Date.ToString("dd/MM/yyyy")</h2>
+            <form method="get" class="form-inline">
+                <input type="date" name="date" class="form-control mr-2" value="@Model.Date.ToString("yyyy-MM-dd")" />
+                <button type="submit" class="btn btn-primary">Xem</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        @foreach (var shift in Model.Shifts)
+        {
+            <div class="col-md-4">
+                <div class="card shadow mb-4">
+                    <div class="card-header">
+                        <strong class="card-title">@shift.ShiftName</strong>
+                        <span class="float-right badge badge-light">@shift.TimeRange</span>
+                    </div>
+                    <div class="card-body">
+                        @if (shift.WorkingEmployees.Any())
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var emp in shift.WorkingEmployees)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="fe fe-user mr-2"></i> @emp.FullName
+                                        </div>
+                                        <span class="badge badge-success">Đã check-in</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center">Chưa có nhân viên phân ca.</p>
+                        }
+                        <button class="btn btn-outline-primary btn-block mt-3 btn-sm">
+                            <i class="fe fe-plus mr-1"></i> Phân nhân viên
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>

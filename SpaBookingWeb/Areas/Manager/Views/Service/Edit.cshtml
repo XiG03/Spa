@@ -1,0 +1,94 @@
+﻿@model SpaBookingWeb.ViewModels.Manager.ServiceViewModel
+
+@{
+    ViewData["Title"] = "Cập nhật Dịch vụ";
+    Layout = "~/Areas/Manager/Views/Shared/_Layout.cshtml";
+}
+
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 col-xl-8">
+            <h2 class="h3 mb-4 page-title">Cập nhật Dịch vụ</h2>
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <strong class="card-title">Thông tin dịch vụ #@Model.ServiceId</strong>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Edit" method="post" enctype="multipart/form-data">
+                        <input type="hidden" asp-for="ServiceId" />
+                        <input type="hidden" asp-for="ExistingImage" />
+
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label asp-for="ServiceName">Tên dịch vụ *</label>
+                                <input asp-for="ServiceName" class="form-control" />
+                                <span asp-validation-for="ServiceName" class="text-danger"></span>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label asp-for="Price">Giá tiền (VNĐ) *</label>
+                                <input asp-for="Price" class="form-control" type="number" />
+                                <span asp-validation-for="Price" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label asp-for="DurationMinutes">Thời lượng (Phút) *</label>
+                                <input asp-for="DurationMinutes" class="form-control" type="number" />
+                                <span asp-validation-for="DurationMinutes" class="text-danger"></span>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label>Hình ảnh hiện tại</label>
+                                <div class="mb-2">
+                                    @if (!string.IsNullOrEmpty(Model.ExistingImage))
+                                    {
+                                        <img src="@Model.ExistingImage" alt="Service Image" class="img-thumbnail" style="height: 100px;" />
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Chưa có ảnh</span>
+                                    }
+                                </div>
+                                <label asp-for="ImageFile">Chọn ảnh mới (nếu muốn thay đổi)</label>
+                                <div class="custom-file">
+                                    <input asp-for="ImageFile" class="custom-file-input" id="customFile" accept="image/*">
+                                    <label class="custom-file-label" for="customFile">Chọn ảnh...</label>
+                                </div>
+                                <span asp-validation-for="ImageFile" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Description">Mô tả chi tiết</label>
+                            <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+                            <span asp-validation-for="Description" class="text-danger"></span>
+                        </div>
+                        <div class="form-group">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" asp-for="IsActive" id="customSwitch1">
+                                <label class="custom-control-label" for="customSwitch1">Đang hoạt động</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" asp-for="RequiresDeposit" id="customCheck2">
+                                <label class="custom-control-label" for="customCheck2">Yêu cầu đặt cọc</label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+                        <a asp-action="Index" class="btn btn-secondary">Quay lại</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        $('.custom-file-input').on('change', function () {
+            var fileName = $(this).val().split('\\').pop();
+            $(this).next('.custom-file-label').addClass("selected").html(fileName);
+        });
+    </script>
+}

@@ -1,0 +1,69 @@
+﻿@model List<SpaBookingWeb.ViewModels.Manager.SalaryPayrollViewModel>
+
+@{
+    ViewData["Title"] = "Bảng lương tháng";
+    Layout = "~/Areas/Manager/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid">
+    <h2 class="page-title">Bảng lương Tháng @ViewBag.Month/@ViewBag.Year</h2>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Nhân viên</th>
+                        <th>Giờ làm</th>
+                        <th>Lương cứng</th>
+                        <th>Hoa hồng</th>
+                        <th>Thực nhận</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td><strong>@item.EmployeeName</strong></td>
+                            <td>@item.TotalWorkHours h</td>
+                            <td>@item.BaseSalary.ToString("N0")</td>
+                            <td class="text-success">+@item.TotalCommission.ToString("N0")</td>
+                            <td class="text-primary font-weight-bold">@item.FinalSalary.ToString("N0") đ</td>
+                            <td>
+                                @if (item.Status == "Draft")
+                                {
+                                    <span class="badge badge-secondary">Dự thảo</span>
+                                }
+                                else if (item.Status == "ManagerConfirmed")
+                                {
+
+                                    <span class="badge badge-warning">Chờ NV xác
+                                        nhận</span>
+                                }
+                                else if (item.Status == "Paid")
+                                {
+
+                                        <span class="badge badge-success">Đã thanh toán</span>
+                                    }
+                            </td>
+                            <td>
+                                @if (item.Status == "Draft")
+                                {
+                                    <form asp-action="ConfirmSalary" method="post">
+                                        <input type="hidden" name="employeeId" value="@item.EmployeeId" />
+                                        <input type="hidden" name="month" value="@item.Month" />
+                                        <input type="hidden" name="year" value="@item.Year" />
+                                        <input type="hidden" name="finalAmount" value="@item.FinalSalary" />
+                                        <button type="submit" class="btn btn-sm btn-primary">Xác nhận trả</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

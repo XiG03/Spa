@@ -1,0 +1,80 @@
+﻿@model SpaBookingWeb.ViewModels.Manager.ServiceViewModel
+
+@{
+    ViewData["Title"] = "Thêm Dịch vụ mới";
+    Layout = "~/Areas/Manager/Views/Shared/_Layout.cshtml";
+}
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 col-xl-8">
+            <h2 class="h3 mb-4 page-title">Thêm Dịch vụ mới</h2>
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <strong class="card-title">Thông tin dịch vụ</strong>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Create" method="post" enctype="multipart/form-data">
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label asp-for="ServiceName">Tên dịch vụ *</label>
+                                <input asp-for="ServiceName" class="form-control" />
+                                <span asp-validation-for="ServiceName" class="text-danger"></span>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label asp-for="Price">Giá tiền (VNĐ) *</label>
+                                <input asp-for="Price" class="form-control" type="number" />
+                                <span asp-validation-for="Price" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label asp-for="DurationMinutes">Thời lượng (Phút) *</label>
+                                <input asp-for="DurationMinutes" class="form-control" type="number" />
+                                <span asp-validation-for="DurationMinutes" class="text-danger"></span>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label asp-for="ImageFile">Hình ảnh</label>
+                                <div class="custom-file">
+                                    <input asp-for="ImageFile" class="custom-file-input" id="customFile" accept="image/*">
+                                    <label class="custom-file-label" for="customFile">Chọn ảnh...</label>
+                                </div>
+                                <span asp-validation-for="ImageFile" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Description">Mô tả chi tiết</label>
+                            <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+                            <span asp-validation-for="Description" class="text-danger"></span>
+                        </div>
+                        <div class="form-group">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" asp-for="IsActive" id="customSwitch1" checked>
+                                <label class="custom-control-label" for="customSwitch1">Kích hoạt ngay</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" asp-for="RequiresDeposit" id="customCheck2">
+                                <label class="custom-control-label" for="customCheck2">Yêu cầu đặt cọc</label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Lưu dịch vụ</button>
+                        <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Hiển thị tên file khi chọn ảnh
+        $('.custom-file-input').on('change', function () {
+            var fileName = $(this).val().split('\\').pop();
+            $(this).next('.custom-file-label').addClass("selected").html(fileName);
+        });
+    </script>
+}
