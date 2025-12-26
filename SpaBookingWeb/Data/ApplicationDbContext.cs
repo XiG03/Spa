@@ -41,6 +41,10 @@ namespace SpaBookingWeb.Data
         public DbSet<Salary> Salaries { get; set; }
         public DbSet<Operations> Operations { get; set; }
 
+        public DbSet<TransactionCategory> TransactionCategories { get; set; }
+        public DbSet<Transaction> Transactions { get; set; }
+        public DbSet<Budget> Budgets { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
