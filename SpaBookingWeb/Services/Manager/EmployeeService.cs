@@ -146,6 +146,7 @@ namespace SpaBookingWeb.Services.Manager
             if (emp != null)
             {
                 emp.IsActive = false;
+                emp.IsDeleted = true; // Đánh dấu xóa mềm
                 _context.Employees.Update(emp);
                 await _context.SaveChangesAsync();
             }

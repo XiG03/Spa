@@ -27,9 +27,10 @@ namespace SpaBookingWeb.Services.Manager
         public async Task<ComboDashboardViewModel> GetAllCombosAsync()
         {
             // Lấy Combo kèm theo chi tiết dịch vụ
+            // Global Query Filter sẽ tự động loại bỏ các Combo và ComboDetails đã bị xóa mềm
             var combos = await _context.Combos
                 .Include(c => c.ComboDetails)
-                .ThenInclude(cd => cd.Service) // Giả sử model ComboDetails có nav prop Service
+                .ThenInclude(cd => cd.Service) 
                 .ToListAsync();
 
             var comboDtos = combos.Select(c => new ComboStatisticDto
@@ -48,7 +49,7 @@ namespace SpaBookingWeb.Services.Manager
 
         public async Task<ComboViewModel> GetComboForCreateAsync()
         {
-            // Lấy danh sách tất cả dịch vụ đang hoạt động để đổ vào Dropdown
+            // Lấy danh sách dịch vụ (Global Filter tự động lọc Active)
             var services = await _context.Services.Where(s => s.IsActive).ToListAsync();
 
             return new ComboViewModel
@@ -78,7 +79,7 @@ namespace SpaBookingWeb.Services.Manager
                 Price = combo.Price,
                 Description = combo.Description,
                 ExistingImage = combo.Image,
-                // Lấy ra các ID dịch vụ đã được chọn trước đó
+                // Lấy ra các ID dịch vụ đang Active trong Combo
                 SelectedServiceIds = combo.ComboDetails.Select(cd => cd.ServiceId).ToList(),
                 AvailableServices = services.Select(s => new SelectListItem
                 {
@@ -113,7 +114,7 @@ namespace SpaBookingWeb.Services.Manager
             _context.Combos.Add(combo);
             await _context.SaveChangesAsync(); // Lưu để lấy ComboId
 
-            // 2. Tạo ComboDetails (Liên kết dịch vụ)
+            // 2. Tạo ComboDetails
             if (model.SelectedServiceIds != null && model.SelectedServiceIds.Any())
             {
                 foreach (var serviceId in model.SelectedServiceIds)
@@ -130,7 +131,7 @@ namespace SpaBookingWeb.Services.Manager
 
         public async Task UpdateComboAsync(ComboViewModel model)
         {
-            var combo = await _context.Combos.Include(c => c.ComboDetails).FirstOrDefaultAsync(c => c.ComboId == model.ComboId);
+            var combo = await _context.Combos.FindAsync(model.ComboId);
             if (combo == null) throw new Exception("Combo không tồn tại");
 
             if (model.ImageFile != null) combo.Image = await SaveImageAsync(model.ImageFile);
@@ -139,22 +140,49 @@ namespace SpaBookingWeb.Services.Manager
             combo.Price = model.Price;
             combo.Description = model.Description ?? "";
 
-            // --- Xử lý cập nhật danh sách dịch vụ ---
+            // --- LOGIC CẬP NHẬT THÔNG MINH (SMART MERGE) CHO XÓA MỀM ---
             
-            // 1. Xóa hết các liên kết cũ
-            _context.ComboDetails.RemoveRange(combo.ComboDetails);
-            
-            // 2. Thêm lại các liên kết mới từ danh sách chọn
-            if (model.SelectedServiceIds != null)
+            // 1. Lấy TẤT CẢ chi tiết (bao gồm cả đã xóa mềm) để quyết định Khôi phục hay Thêm mới
+            var allExistingDetails = await _context.ComboDetails
+                .IgnoreQueryFilters() // <--- Quan trọng: Bỏ qua bộ lọc để thấy dòng đã xóa
+                .Where(cd => cd.ComboId == model.ComboId)
+                .ToListAsync();
+
+            var newServiceIds = model.SelectedServiceIds ?? new List<int>();
+
+            // 2. Xử lý các dòng đã có trong DB
+            foreach (var detail in allExistingDetails)
             {
-                foreach (var serviceId in model.SelectedServiceIds)
+                if (newServiceIds.Contains(detail.ServiceId))
                 {
-                    _context.ComboDetails.Add(new ComboDetail
+                    // Trường hợp A: Dịch vụ được chọn có trong DB -> Đảm bảo nó Active (Khôi phục nếu cần)
+                    // Vì interface ISoftDelete có IsDeleted, ta gán thủ công để chắc chắn
+                    // Sử dụng Reflection hoặc ép kiểu nếu model có interface, ở đây gán qua Entry
+                    var entry = _context.Entry(detail);
+                    if (entry.CurrentValues.Properties.Any(p => p.Name == "IsDeleted"))
                     {
-                        ComboId = combo.ComboId,
-                        ServiceId = serviceId
-                    });
+                        entry.CurrentValues["IsDeleted"] = false; // Khôi phục
+                    }
                 }
+                else
+                {
+                    // Trường hợp B: Dịch vụ không được chọn nữa -> Xóa mềm
+                    // Gọi Remove() sẽ kích hoạt logic Soft Delete trong ApplicationDbContext
+                    _context.ComboDetails.Remove(detail);
+                }
+            }
+
+            // 3. Xử lý các dòng chưa từng có trong DB -> Thêm mới hoàn toàn
+            var existingServiceIds = allExistingDetails.Select(x => x.ServiceId).ToList();
+            var idsToAdd = newServiceIds.Except(existingServiceIds);
+
+            foreach (var id in idsToAdd)
+            {
+                _context.ComboDetails.Add(new ComboDetail
+                {
+                    ComboId = combo.ComboId,
+                    ServiceId = id
+                });
             }
 
             _context.Combos.Update(combo);
@@ -163,13 +191,23 @@ namespace SpaBookingWeb.Services.Manager
 
         public async Task DeleteComboAsync(int id)
         {
-            var combo = await _context.Combos.FindAsync(id);
+            // Lấy Combo bao gồm cả chi tiết để xóa mềm cả con
+            var combo = await _context.Combos
+                .Include(c => c.ComboDetails)
+                .FirstOrDefaultAsync(c => c.ComboId == id);
+
             if (combo != null)
             {
-                // Vì bảng Combo trong SQL của bạn không có cột IsDeleted/IsActive
-                // Nên chúng ta dùng xóa cứng (Hard Delete). 
-                // ComboDetails sẽ tự động bị xóa theo (Cascade Delete) nếu đã cấu hình trong DBContext
+                // 1. Xóa mềm các chi tiết con trước
+                // Khi gọi Remove, ApplicationDbContext sẽ chặn lại và chuyển thành IsDeleted = true
+                foreach (var detail in combo.ComboDetails)
+                {
+                    _context.ComboDetails.Remove(detail);
+                }
+
+                // 2. Xóa mềm Combo cha
                 _context.Combos.Remove(combo);
+                
                 await _context.SaveChangesAsync();
             }
         }

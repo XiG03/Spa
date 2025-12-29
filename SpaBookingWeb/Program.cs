@@ -5,6 +5,8 @@ using SpaBookingWeb.Data;
 using SpaBookingWeb.Models;
 using SpaBookingWeb.Services;
 using SpaBookingWeb.Services.Manager;
+using Microsoft.AspNetCore.Authorization;
+using SpaBookingWeb.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,15 +29,15 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 })
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
-    builder.Services.AddAuthentication()
-    .AddGoogle(options =>
-    {
-        options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
-    });
+builder.Services.AddAuthentication()
+.AddGoogle(options =>
+{
+    options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
+    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+});
 
 
-builder.Services.AddScoped<MomoService,MomoService>();
+builder.Services.AddScoped<MomoService, MomoService>();
 
 //Services Injection for Manager
 builder.Services.AddScoped<ICustomerService, CustomerService>();
@@ -45,9 +47,18 @@ builder.Services.AddScoped<IComboService, ComboService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 
 
-//Repository and UnitOfWork Injection
+//Services Injection for Root
+builder.Services.AddScoped<IEmailService, EmailService>();
+
+
+// Authorization with Permission
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+
+
+builder.Services.AddHttpContextAccessor();
 
 
 builder.Services.AddControllersWithViews();

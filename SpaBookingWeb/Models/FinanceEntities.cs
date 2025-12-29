@@ -18,6 +18,8 @@ namespace SpaBookingWeb.Models
 
         public string Description { get; set; }
 
+        public bool IsDeleted { get; set; } = false;
+
         // Loại danh mục: true = Thu, false = Chi
         public bool IsIncomeCategory { get; set; } 
 
@@ -40,6 +42,8 @@ namespace SpaBookingWeb.Models
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal Amount { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
 
         public string Description { get; set; }
 
@@ -65,6 +69,8 @@ namespace SpaBookingWeb.Models
 
         public int Month { get; set; }
         public int Year { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal LimitAmount { get; set; }

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SpaBookingWeb.Data;
 
@@ -11,9 +12,11 @@ using SpaBookingWeb.Data;
 namespace SpaBookingWeb.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251229151928_AddActivityLog")]
+    partial class AddActivityLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -30,11 +33,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
@@ -68,11 +66,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<string>("ClaimValue")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
                     b.Property<string>("RoleId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -98,11 +91,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<string>("ClaimValue")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -121,11 +109,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<string>("ProviderKey")
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
 
                     b.Property<string>("ProviderDisplayName")
                         .HasColumnType("nvarchar(max)");
@@ -149,11 +132,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<string>("RoleId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
                     b.HasKey("UserId", "RoleId");
 
                     b.HasIndex("RoleId");
@@ -171,11 +149,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<string>("Name")
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
 
                     b.Property<string>("Value")
                         .HasColumnType("nvarchar(max)");
@@ -233,6 +206,7 @@ namespace SpaBookingWeb.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("UserId")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
@@ -268,11 +242,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
@@ -343,9 +312,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("IsDepositPaid")
                         .HasColumnType("bit");
 
@@ -387,9 +353,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
@@ -422,9 +385,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<int?>("ComboId")
                         .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<decimal>("PriceAtBooking")
                         .HasColumnType("decimal(18,2)");
@@ -461,9 +421,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<decimal>("LimitAmount")
                         .HasColumnType("decimal(18,2)");
 
@@ -496,11 +453,6 @@ namespace SpaBookingWeb.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -532,9 +484,6 @@ namespace SpaBookingWeb.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
 
@@ -550,9 +499,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<int>("ServiceId")
                         .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.HasKey("ComboId", "ServiceId");
 
@@ -578,9 +524,6 @@ namespace SpaBookingWeb.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<int?>("MembershipTypeId")
                         .HasColumnType("int");
@@ -622,9 +565,6 @@ namespace SpaBookingWeb.Data.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<decimal?>("MinOrderValue")
@@ -697,9 +637,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.HasKey("EmployeeId");
 
                     b.HasIndex("IdentityUserId")
@@ -730,9 +667,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<decimal>("FinalAmount")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("PaymentStatus")
                         .IsRequired()
@@ -769,9 +703,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<double>("DiscountPercent")
                         .HasColumnType("float");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<decimal>("MinSpendRequirement")
                         .HasColumnType("decimal(18,2)");
 
@@ -798,9 +729,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<DateTime>("CreateDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("Note")
                         .HasColumnType("nvarchar(max)");
@@ -835,9 +763,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<int>("InvoiceId")
                         .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<DateTime>("PaymentDate")
                         .HasColumnType("datetime2");
@@ -876,9 +801,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("IsPublished")
                         .HasColumnType("bit");
@@ -931,9 +853,6 @@ namespace SpaBookingWeb.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -953,9 +872,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<int?>("CategoryId")
                         .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("IsForSale")
                         .HasColumnType("bit");
@@ -1004,9 +920,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<int>("Rating")
                         .HasColumnType("int");
 
@@ -1033,9 +946,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<int>("EmployeeId")
                         .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<int>("Month")
                         .HasColumnType("int");
@@ -1089,9 +999,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
 
@@ -1118,9 +1025,6 @@ namespace SpaBookingWeb.Data.Migrations
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
@@ -1141,9 +1045,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<TimeSpan>("EndTime")
                         .HasColumnType("time");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("ShiftName")
                         .IsRequired()
@@ -1174,9 +1075,6 @@ namespace SpaBookingWeb.Data.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<string>("SettingValue")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -1197,9 +1095,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<double>("CommissionRate")
                         .HasColumnType("float");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("SkillLevel")
                         .IsRequired()
@@ -1224,9 +1119,6 @@ namespace SpaBookingWeb.Data.Migrations
 
                     b.Property<decimal?>("CustomPrice")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.HasKey("EmployeeId", "ServiceId");
 
@@ -1260,9 +1152,6 @@ namespace SpaBookingWeb.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("IsIncome")
                         .HasColumnType("bit");
 
@@ -1293,9 +1182,6 @@ namespace SpaBookingWeb.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("IsIncomeCategory")
                         .HasColumnType("bit");
 
@@ -1316,11 +1202,6 @@ namespace SpaBookingWeb.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UnitId"));
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
 
                     b.Property<string>("UnitName")
                         .IsRequired()
@@ -1409,9 +1290,6 @@ namespace SpaBookingWeb.Data.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("IsCheckIn")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<int>("ShiftId")
