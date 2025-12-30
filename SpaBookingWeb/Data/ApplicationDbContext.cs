@@ -5,23 +5,30 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Newtonsoft.Json;
 using SpaBookingWeb.Models;
+using SpaBookingWeb.Services.Implements; // Namespace chứa INotificationService
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection; // Mới: Cần cho Reflection
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using SpaBookingWeb.Services;
 
 namespace SpaBookingWeb.Data
 {
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly INotificationService _notifService; // 1. Inject Service thông báo
 
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IHttpContextAccessor httpContextAccessor)
+        public ApplicationDbContext(
+            DbContextOptions<ApplicationDbContext> options, 
+            IHttpContextAccessor httpContextAccessor,
+            INotificationService notifService) // Thêm tham số này vào Constructor
             : base(options)
         {
             _httpContextAccessor = httpContextAccessor;
+            _notifService = notifService;
         }
 
         // --- CÁC DBSET (GIỮ NGUYÊN) ---
@@ -61,7 +68,6 @@ namespace SpaBookingWeb.Data
         {
             base.OnModelCreating(builder);
 
-            // ... (Giữ nguyên cấu hình cũ) ...
             builder.Entity<ServiceConsumable>().HasKey(sc => new { sc.ServiceId, sc.ProductId });
             builder.Entity<ComboDetail>().HasKey(cd => new { cd.ComboId, cd.ServiceId });
             builder.Entity<TechnicianService>().HasKey(ts => new { ts.EmployeeId, ts.ServiceId });
@@ -88,28 +94,21 @@ namespace SpaBookingWeb.Data
                 .OnDelete(DeleteBehavior.NoAction);
 
             // --- CẤU HÌNH XÓA MỀM TỰ ĐỘNG (SOFT DELETE) ---
-            // Duyệt qua tất cả các bảng trong Model
             foreach (var entityType in builder.Model.GetEntityTypes())
             {
-                // Bỏ qua bảng ActivityLog và các bảng hệ thống Identity nếu không cần thiết
                 if (typeof(ActivityLog).IsAssignableFrom(entityType.ClrType)) continue;
 
-                // 1. Thêm thuộc tính ẩn (Shadow Property) "IsDeleted"
-                // Nếu class chưa có property này, EF sẽ tự thêm vào model
                 var isDeletedProperty = entityType.FindProperty("IsDeleted");
                 if (isDeletedProperty == null)
                 {
                     builder.Entity(entityType.ClrType).Property<bool>("IsDeleted").HasDefaultValue(false);
                 }
 
-                // 2. Thêm Bộ lọc truy vấn toàn cục (Global Query Filter)
-                // Tự động thêm điều kiện "WHERE IsDeleted = false" vào mọi câu truy vấn
                 var method = SetGlobalQueryFilterMethod.MakeGenericMethod(entityType.ClrType);
                 method.Invoke(this, new object[] { builder });
             }
         }
 
-        // Helper Method để tạo Global Query Filter thông qua Reflection
         static readonly MethodInfo SetGlobalQueryFilterMethod = typeof(ApplicationDbContext)
             .GetMethods(BindingFlags.NonPublic | BindingFlags.Instance)
             .Single(t => t.IsGenericMethod && t.Name == "SetGlobalQueryFilter");
@@ -119,10 +118,10 @@ namespace SpaBookingWeb.Data
             builder.Entity<T>().HasQueryFilter(e => !EF.Property<bool>(e, "IsDeleted"));
         }
 
-        // --- LOGIC GHI LOG & XÓA MỀM ---
+        // --- LOGIC GHI LOG & XÓA MỀM & THÔNG BÁO ---
         public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
         {
-            // Bước 1: Tính toán thay đổi
+            // Bước 1: Tính toán thay đổi (Bao gồm chuyển đổi Xóa Mềm)
             var auditEntries = OnBeforeSaveChanges();
 
             try
@@ -130,14 +129,81 @@ namespace SpaBookingWeb.Data
                 // Bước 2: Lưu dữ liệu chính
                 var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
 
-                // Bước 3: Lưu Log
+                // Bước 3: Lưu Log Audit
                 await OnAfterSaveChanges(auditEntries);
+
+                // Bước 4: Gửi Thông báo Real-time (MỚI)
+                // Chúng ta tận dụng luôn auditEntries vì nó đã chứa thông tin "Create/Update/Delete" và "DisplayName" chính xác
+                await SendNotificationsAsync(auditEntries);
 
                 return result;
             }
             catch (Exception)
             {
                 throw;
+            }
+        }
+
+        // Hàm mới: Gửi thông báo dựa trên danh sách Audit
+        private async Task SendNotificationsAsync(List<AuditEntry> auditEntries)
+        {
+            if (auditEntries == null || !auditEntries.Any()) return;
+
+            foreach (var entry in auditEntries)
+            {
+                // Action được lấy từ AuditType: "Create", "Update", "Delete"
+                string actionVN = entry.AuditType switch 
+                {
+                    "Create" => "thêm mới",
+                    "Update" => "cập nhật",
+                    "Delete" => "xóa",
+                    _ => "thay đổi"
+                };
+
+                string title = $"Dữ liệu: {entry.TableName}";
+                // DisplayName đã được logic Audit tính toán (Lấy từ Name/Title/FullName/Code...)
+                string content = $"{entry.TableName} '{entry.DisplayName ?? "..."}' vừa được {actionVN}.";
+                string icon = "fe-database";
+                string link = "#";
+
+                // Lấy Entity gốc để kiểm tra kiểu cụ thể cho Icon và Link đẹp hơn
+                var entity = entry.Entry.Entity;
+
+                if (entity is Post post)
+                {
+                    title = entry.AuditType == "Create" ? "Bài viết mới" : "Cập nhật Blog";
+                    content = $"Bài viết '{post.Title}' vừa được {actionVN}.";
+                    icon = "fe-file-text";
+                    link = entry.AuditType == "Delete" ? "#" : $"/Manager/BlogPosts/Edit/{post.PostId}";
+                }
+                else if (entity is ApplicationUser user)
+                {
+                    title = "Người dùng";
+                    content = $"Tài khoản '{user.UserName}' vừa được {actionVN}.";
+                    icon = "fe-user";
+                    link = $"/Manager/Users/Edit/{user.Id}";
+                }
+                else if (entity is PostCategory cat)
+                {
+                    title = "Danh mục";
+                    content = $"Danh mục '{cat.CategoryName}' vừa được {actionVN}.";
+                    icon = "fe-folder";
+                }
+                else if (entity is Voucher v)
+                {
+                    title = "Voucher";
+                    content = $"Mã giảm giá '{v.Code}' vừa được {actionVN}.";
+                    icon = "fe-tag";
+                }
+                else if (entity is Appointment)
+                {
+                    title = "Lịch hẹn";
+                    icon = "fe-calendar";
+                }
+                // Bạn có thể thêm các `else if` khác cho Product, Service...
+
+                // Gửi tín hiệu (Fire and Forget)
+                _ = _notifService.NotifyAsync(title, content, icon, link);
             }
         }
 
@@ -150,7 +216,6 @@ namespace SpaBookingWeb.Data
 
             foreach (var entry in ChangeTracker.Entries())
             {
-                // Phòng thủ: Sửa lỗi thiếu dữ liệu cho ActivityLog
                 if (entry.Entity is ActivityLog log && entry.State == EntityState.Added)
                 {
                     if (string.IsNullOrEmpty(log.AffectedColumns)) log.AffectedColumns = "[]";
@@ -171,7 +236,6 @@ namespace SpaBookingWeb.Data
                 auditEntry.UserId = user;
                 auditEntry.IpAddress = ip;
                 
-                // Xác định loại hành động
                 switch (entry.State)
                 {
                     case EntityState.Added: auditEntry.AuditType = "Create"; break;
@@ -179,7 +243,6 @@ namespace SpaBookingWeb.Data
                     case EntityState.Modified: auditEntry.AuditType = "Update"; break;
                 }
 
-                // Lấy tên hiển thị
                 var nameProp = entry.Properties.FirstOrDefault(p => 
                     p.Metadata.Name.Equals("Name", StringComparison.OrdinalIgnoreCase) || 
                     p.Metadata.Name.Equals("Title", StringComparison.OrdinalIgnoreCase) ||
@@ -192,8 +255,6 @@ namespace SpaBookingWeb.Data
                     auditEntry.DisplayName = val?.ToString();
                 }
                 
-                // Thu thập dữ liệu các cột
-                // LƯU Ý: Thực hiện việc này TRƯỚC khi chuyển đổi trạng thái Xóa Mềm
                 foreach (var property in entry.Properties)
                 {
                     if (property.IsTemporary)
@@ -228,30 +289,19 @@ namespace SpaBookingWeb.Data
                     }
                 }
 
-                // --- LOGIC XÓA MỀM (SOFT DELETE) ---
-                // Nếu đang là lệnh Xóa (Deleted), chuyển thành Sửa (Modified) và set IsDeleted = true
                 if (entry.State == EntityState.Deleted)
                 {
-                    // Kiểm tra xem bảng này có cột IsDeleted không (Shadow Property hoặc Property thật)
                     var isDeletedProp = entry.Metadata.FindProperty("IsDeleted");
                     if (isDeletedProp != null && isDeletedProp.ClrType == typeof(bool))
                     {
-                        // 1. Chuyển trạng thái sang Modified
                         entry.State = EntityState.Modified;
-                        
-                        // 2. Cập nhật giá trị IsDeleted = true
                         entry.CurrentValues["IsDeleted"] = true;
-
-                        // 3. Vẫn giữ AuditType là "Delete" để log hiển thị đúng ý nghĩa hành động
-                        // (Mặc dù về kỹ thuật là Update, nhưng về nghiệp vụ là Xóa)
                     }
                 }
 
                 auditEntries.Add(auditEntry);
             }
 
-            // Loại bỏ các bản ghi Update rỗng (không có gì thay đổi)
-            // Lưu ý: Soft Delete giờ là Modified nhưng có thay đổi cột IsDeleted, nên sẽ không bị lọc mất
             foreach (var auditEntry in auditEntries.Where(e => !e.HasTemporaryProperties))
             {
                 if (auditEntry.AuditType == "Update" && auditEntry.ChangedColumns.Count == 0)
@@ -281,7 +331,6 @@ namespace SpaBookingWeb.Data
             {
                 var log = auditEntry.ToAudit();
 
-                // Phòng thủ lớp 2
                 if (string.IsNullOrEmpty(log.AffectedColumns)) log.AffectedColumns = "[]";
                 if (string.IsNullOrEmpty(log.OldValues)) log.OldValues = "{}";
                 if (string.IsNullOrEmpty(log.NewValues)) log.NewValues = "{}";
@@ -289,7 +338,6 @@ namespace SpaBookingWeb.Data
                 if (string.IsNullOrEmpty(log.Action)) log.Action = "System";
                 if (string.IsNullOrEmpty(log.IpAddress)) log.IpAddress = "Unknown";
 
-                // Xử lý Description chi tiết (Foreign Key Lookup)
                 var entityType = auditEntry.Entry.Metadata;
                 var foreignKeys = entityType.GetForeignKeys();
                 List<string> relatedInfo = new List<string>();

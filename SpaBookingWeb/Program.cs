@@ -7,6 +7,9 @@ using SpaBookingWeb.Services;
 using SpaBookingWeb.Services.Manager;
 using Microsoft.AspNetCore.Authorization;
 using SpaBookingWeb.Authorization;
+using SpaBookingWeb.Services.Interfaces;
+using SpaBookingWeb.Services.Implements;
+using SpaBookingWeb.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,14 +51,17 @@ builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
+builder.Services.AddScoped<IBlogPostService,BlogPostService>();
 
 
 //Services Injection for Root
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<INotificationService,NotificationService>();
 
 
 // Authorization with Permission
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+
 
 
 builder.Services.AddHttpContextAccessor();
@@ -64,6 +70,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddRazorPages();
+
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -101,5 +109,7 @@ app.MapControllerRoute(
 
 
 app.MapRazorPages();
+
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();
