@@ -1,26 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace SpaBookingWeb.ViewModels.Manager
 {
-    // ViewModel cho danh sách nhân viên
+    // 1. ViewModel cho Danh sách nhân viên (CRUD)
     public class EmployeeListViewModel
     {
         public int EmployeeId { get; set; }
         public string FullName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
-        public string Position { get; set; } = "Technician"; // Vị trí (VD: Kỹ thuật viên)
+        public string Position { get; set; } = "Technician";
         public string Avatar { get; set; } = string.Empty;
         
-        // Thống kê
-        public double AverageRating { get; set; } // Điểm đánh giá trung bình
-        public int TotalAppointments { get; set; } // Tổng số ca đã phục vụ
+        public double AverageRating { get; set; }
+        public int TotalAppointments { get; set; }
         public bool IsActive { get; set; }
     }
 
-    // ViewModel cho Thêm/Sửa nhân viên
+    // 2. ViewModel cho Form Thêm/Sửa nhân viên (CRUD)
     public class EmployeeViewModel
     {
         public int EmployeeId { get; set; }
@@ -33,7 +33,6 @@ namespace SpaBookingWeb.ViewModels.Manager
         public string Email { get; set; } = string.Empty;
 
         public string PhoneNumber { get; set; } = string.Empty;
-
         public string Address { get; set; } = string.Empty;
 
         [DataType(DataType.Date)]
@@ -42,17 +41,28 @@ namespace SpaBookingWeb.ViewModels.Manager
         public string Gender { get; set; } = "Nữ";
 
         [Required]
-        public decimal BaseSalary { get; set; } // Lương cơ bản
+        public decimal BaseSalary { get; set; }
 
         public DateTime HireDate { get; set; } = DateTime.Now;
 
         public bool IsActive { get; set; } = true;
+
+        // --- MỚI: PHÂN QUYỀN & DỊCH VỤ ---
+        
+        [Display(Name = "Vai trò hệ thống")]
+        public string SelectedRoleId { get; set; }
+        public List<SelectListItem> Roles { get; set; } = new List<SelectListItem>();
+
+        [Display(Name = "Dịch vụ đảm nhận (Dành cho KTV)")]
+        public List<int> SelectedServiceIds { get; set; } = new List<int>();
+        public List<SelectListItem> Services { get; set; } = new List<SelectListItem>();
     }
 
-    // ViewModel hiển thị lịch làm việc trong ngày
+    // 3. ViewModel cho Lịch làm việc & Điểm danh
     public class DailyScheduleViewModel
     {
         public DateTime Date { get; set; }
+        // Danh sách các ca làm việc trong ngày
         public List<ShiftAssignmentDto> Shifts { get; set; } = new List<ShiftAssignmentDto>();
     }
 
@@ -60,7 +70,45 @@ namespace SpaBookingWeb.ViewModels.Manager
     {
         public int ShiftId { get; set; }
         public string ShiftName { get; set; } = string.Empty;
-        public string TimeRange { get; set; } = string.Empty; // VD: 08:00 - 12:00
-        public List<EmployeeListViewModel> WorkingEmployees { get; set; } = new List<EmployeeListViewModel>();
+        public string TimeRange { get; set; } = string.Empty;
+        
+        // Danh sách nhân viên được phân vào ca này (Kèm trạng thái điểm danh)
+        public List<WorkScheduleViewModel> Schedules { get; set; } = new List<WorkScheduleViewModel>();
     }
+
+    // Chi tiết một phân công làm việc (để hiển thị trạng thái điểm danh)
+    public class WorkScheduleViewModel
+    {
+        public int ScheduleId { get; set; }
+        public int EmployeeId { get; set; }
+        public string EmployeeName { get; set; } = string.Empty;
+        public string Position { get; set; } = "KTV";
+        
+        // Trạng thái điểm danh
+        public bool IsPresent { get; set; }
+        public string Note { get; set; } = string.Empty; // Ghi chú (đến muộn, về sớm...)
+    }
+
+    // Dùng cho Dropdown chọn ca làm việc
+    public class ShiftViewModel
+    {
+        public int ShiftId { get; set; }
+        public string ShiftName { get; set; }
+        public TimeSpan StartTime { get; set; }
+        public TimeSpan EndTime { get; set; }
+    }
+
+    // 4. ViewModel cho Quản lý Tiền Tip
+    public class DailyTipViewModel
+    {
+        public int TipId { get; set; } // Có thể là AppointmentId
+        public DateTime CreatedDate { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public string EmployeeName { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public bool IsDistributed { get; set; } // Đã trả cho nhân viên chưa
+    }
+
+    // 5. ViewModel cho Lương
+    
 }

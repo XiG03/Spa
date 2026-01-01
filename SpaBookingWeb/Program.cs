@@ -52,6 +52,8 @@ builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<IBlogPostService,BlogPostService>();
+builder.Services.AddScoped<IProfileService,ProfileService>();
+builder.Services.AddScoped<IDashboardService,DashboardService>();
 
 
 //Services Injection for Root

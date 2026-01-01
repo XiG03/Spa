@@ -18,7 +18,7 @@ namespace SpaBookingWeb.Models
         [StringLength(100)]
         public string EntityName { get; set; } // Tên bảng (Products, Users...)
 
-        [StringLength(50)]
+        [StringLength(500)]
         public string EntityId { get; set; } // ID của dòng dữ liệu (Primary Key)
 
         public string? UserId { get; set; } // Người thực hiện
