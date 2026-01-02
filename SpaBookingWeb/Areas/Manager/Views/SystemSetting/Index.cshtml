@@ -17,6 +17,15 @@
             </button>
         </div>
     }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-alert alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    }
 
     <!-- Tabs Navigation -->
     <ul class="nav nav-tabs mb-4" id="settingTabs" role="tablist">
@@ -202,7 +211,7 @@
                                                         onsubmit="return confirm('Bạn có chắc muốn xóa?');">
                                                         <input type="hidden" name="id" value="@unit.UnitId" />
                                                         <button type="submit" class="btn btn-danger btn-sm" title="Xóa">
-                                                            <i class="fas fa-trash">Xóa</i>
+                                                            <i class="fas fa-trash"></i> Xóa
                                                         </button>
                                                     </form>
                                                 </td>
@@ -243,7 +252,7 @@
         <!-- TAB 3: QUẢN LÝ PHÂN QUYỀN (ROLES) -->
         <div class="tab-pane fade" id="roles" role="tabpanel" aria-labelledby="roles-tab">
             <div class="row">
-                <div class="col-md-11">
+                <div class="col-md-12">
                     <div class="card shadow mb-4">
                         <div class="card-header py-3">
                             <h6 class="m-0 font-weight-bold text-primary">Danh sách Quyền hạn (Roles)</h6>
@@ -262,46 +271,33 @@
                                         foreach (var role in Model.Roles)
                                         {
                                             <tr>
-
-
-
                                                 <td class="align-middle">@role.Name</td>
                                                 <td>
-                                                    <!-- Nút Phân quyền (Thêm mr-2 để cách nút Xóa ra) -->
-                                                    <div class="demo-box">
-                                                        <div class="row">
-                                                            <!-- Cột trái -->
-                                                            <div class="col-6 text-start">
-                                                                <a asp-action="ManagePermissions" asp-route-roleId="@role.Id"
-                                                                    class="btn btn-info btn-sm mr-2"
-                                                                    title="Phân quyền chi tiết">
-                                                                    <i class="fas fa-user-lock"></i> Phân quyền
-                                                                </a>
-                                                            </div>
-                                                            <!-- Cột phải -->
-                                                            <div class="col-6">
-                                                                @if (role.Name == "Admin" || role.Name == "Manager")
-                                                                {
-                                                                    /* Badge dùng w-100 để giãn bằng kích thước nút bên cạnh */
-                                                                    <span
-                                                                        class="badge bg-secondary p-2 w-100 d-flex align-items-center justify-content-center text-white"
-                                                                        style="height: 31px;"> Default
-                                                                    </span>
-                                                                }
-                                                                else
-                                                                {
-                                                                    /* Form xóa giãn full chiều rộng cột */
-                                                                    <form asp-action="DeleteRole" method="post" class="w-100"
-                                                                        onsubmit="return confirm('Xóa quyền này có thể ảnh hưởng đến người dùng đang sử dụng. Tiếp tục?');">
-                                                                        <input type="hidden" name="id" value="@role.Id" />
-
-                                                                        <button type="submit" class="btn btn-danger btn-sm w-100"
-                                                                            title="Xóa">
-                                                                            <i class="fas fa-trash"></i> Xóa
-                                                                        </button>
-                                                                    </form>
-                                                                }
-                                                            </div>
+                                                    <div class="row no-gutters">
+                                                        <div class="col-6 pr-1">
+                                                            <a asp-action="ManagePermissions" asp-route-roleId="@role.Id"
+                                                                class="btn btn-info btn-sm btn-block"
+                                                                title="Phân quyền chi tiết">
+                                                                <i class="fas fa-user-lock"></i> Phân quyền
+                                                            </a>
+                                                        </div>
+                                                        <div class="col-6 pl-1">
+                                                            @if (role.Name == "Admin" || role.Name == "Manager")
+                                                            {
+                                                                <span class="badge badge-secondary p-2 w-100 d-flex align-items-center justify-content-center" style="height: 31px;">
+                                                                    Mặc định
+                                                                </span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <form asp-action="DeleteRole" method="post" class="w-100"
+                                                                    onsubmit="return confirm('Xóa quyền này có thể ảnh hưởng đến người dùng đang sử dụng. Tiếp tục?');">
+                                                                    <input type="hidden" name="id" value="@role.Id" />
+                                                                    <button type="submit" class="btn btn-danger btn-sm w-100" title="Xóa">
+                                                                        <i class="fas fa-trash"></i> Xóa
+                                                                    </button>
+                                                                </form>
+                                                            }
                                                         </div>
                                                     </div>
                                                 </td>
@@ -313,19 +309,16 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-12">
                     <div class="card shadow mb-4">
                         <div class="card-header py-3">
                             <h6 class="m-0 font-weight-bold text-success">Thêm Quyền mới</h6>
                         </div>
                         <div class="card-body">
-                            <form asp-action="AddRole" method="post">
-                                <div class="form-group">
-                                    <label asp-for="NewRoleName">Tên quyền (Ví dụ: Accountant, Receptionist)</label>
-                                    <input asp-for="NewRoleName" class="form-control" required />
-                                </div>
-                                <button type="submit" class="btn btn-success"><i class="fas fa-plus"></i> Thêm
-                                    quyền</button>
+                            <form asp-action="AddRole" method="post" class="form-inline">
+                                <label asp-for="NewRoleName" class="sr-only">Tên quyền</label>
+                                <input asp-for="NewRoleName" class="form-control mb-2 mr-sm-2 w-50" placeholder="Tên quyền (VD: Accountant)" required />
+                                <button type="submit" class="btn btn-success mb-2"><i class="fas fa-plus"></i> Thêm quyền</button>
                             </form>
                         </div>
                     </div>
@@ -338,8 +331,8 @@
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
                     <h6 class="m-0 font-weight-bold text-primary">Danh sách quy tắc đặt cọc nâng cao</h6>
-                    <!-- Nút thêm mới có thể mở Modal hoặc chuyển trang (chưa implement controller Add) -->
-                    <button class="btn btn-sm btn-primary disabled" title="Tính năng đang cập nhật">
+                    <!-- Nút Mở Modal Thêm Mới -->
+                    <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#addDepositRuleModal">
                         <i class="fas fa-plus"></i> Thêm quy tắc
                     </button>
                 </div>
@@ -365,30 +358,28 @@
                                             <td>
                                                 @if (rule.ApplyToType == "OrderTotal")
                                                 {
-                                                    <span class="badge badge-info">Tổng
-                                                        đơn</span>
+                                                    <span class="badge badge-info">Tổng đơn</span>
                                                 }
                                                 else if (rule.ApplyToType == "SpecificService")
                                                 {
-
-                                                    <span class="badge badge-warning">Dịch vụ:
-                                                        @rule.TargetService?.ServiceName</span>
+                                                    <span class="badge badge-warning">Dịch vụ: @rule.TargetService?.ServiceName</span>
+                                                }
+                                                else if (rule.ApplyToType == "MembershipType")
+                                                {
+                                                    <span class="badge badge-primary">Hạng: @rule.TargetMembershipType?.TypeName</span>
                                                 }
                                                 else
                                                 {
-
                                                     <span class="badge badge-secondary">@rule.ApplyToType</span>
                                                 }
                                             </td>
                                             <td>
                                                 @if (rule.MinOrderValue.HasValue)
                                                 {
-                                                    <span>Đơn >
-                                                        @rule.MinOrderValue?.ToString("N0")đ</span>
+                                                    <span>Đơn > @rule.MinOrderValue?.ToString("N0")đ</span>
                                                 }
                                                 else
                                                 {
-
                                                     <span>Tất cả</span>
                                                 }
                                             </td>
@@ -399,7 +390,6 @@
                                                 }
                                                 else
                                                 {
-
                                                     <strong class="text-success">@rule.DepositValue.ToString("N0")đ</strong>
                                                 }
                                             </td>
@@ -418,8 +408,7 @@
                                 else
                                 {
                                     <tr>
-                                        <td colspan="5" class="text-center">Chưa có quy tắc nào (Sử dụng mức cọc mặc định ở
-                                            Tab chung)</td>
+                                        <td colspan="5" class="text-center text-muted py-4">Chưa có quy tắc nào (Sử dụng mức cọc mặc định ở Tab chung)</td>
                                     </tr>
                                 }
                             </tbody>
@@ -432,14 +421,86 @@
     </div>
 </div>
 
+<!-- Modal Thêm Quy Tắc Đặt Cọc -->
+<div class="modal fade" id="addDepositRuleModal" tabindex="-1" role="dialog" aria-labelledby="addDepositRuleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="addDepositRuleModalLabel">Thêm quy tắc đặt cọc mới</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form asp-action="AddDepositRule" method="post">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label asp-for="NewRuleName" class="font-weight-bold">Tên quy tắc</label>
+                        <input asp-for="NewRuleName" class="form-control" placeholder="VD: Cọc cho khách VIP" required />
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label asp-for="NewApplyToType" class="font-weight-bold">Áp dụng cho</label>
+                                <select asp-for="NewApplyToType" asp-items="Model.ApplyToTypes" class="form-control" id="applyTypeSelect"></select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label asp-for="NewMinOrderValue" class="font-weight-bold">Giá trị đơn tối thiểu (VNĐ)</label>
+                                <input asp-for="NewMinOrderValue" class="form-control" placeholder="Để trống nếu không giới hạn" type="number" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Khu vực chọn Dịch vụ (Ẩn mặc định) -->
+                    <div class="form-group" id="serviceSelectGroup" style="display:none;">
+                        <label asp-for="NewTargetServiceId" class="font-weight-bold">Chọn dịch vụ</label>
+                        <select asp-for="NewTargetServiceId" asp-items="Model.AvailableServices" class="form-control">
+                            <option value="">-- Chọn dịch vụ --</option>
+                        </select>
+                    </div>
+
+                    <!-- Khu vực chọn Hạng thành viên (Ẩn mặc định) -->
+                    <div class="form-group" id="membershipSelectGroup" style="display:none;">
+                        <label asp-for="NewTargetMembershipTypeId" class="font-weight-bold">Chọn hạng thành viên</label>
+                        <select asp-for="NewTargetMembershipTypeId" asp-items="Model.AvailableMembershipTypes" class="form-control">
+                            <option value="">-- Chọn hạng --</option>
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label asp-for="NewDepositType" class="font-weight-bold">Loại cọc</label>
+                                <select asp-for="NewDepositType" asp-items="Model.DepositTypes" class="form-control"></select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label asp-for="NewDepositValue" class="font-weight-bold">Giá trị (VNĐ hoặc %)</label>
+                                <input asp-for="NewDepositValue" class="form-control" required type="number" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-primary">Lưu quy tắc</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
 
     <script>
-        // Script để giữ Tab đang active sau khi reload trang (do submit form)
         $(document).ready(function () {
+            // Logic giữ Tab active
             $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
                 localStorage.setItem('activeTab', $(e.target).attr('href'));
             });
@@ -447,6 +508,24 @@
             if (activeTab) {
                 $('.nav-tabs a[href="' + activeTab + '"]').tab('show');
             }
+
+            // Logic ẩn hiện dropdown theo loại áp dụng
+            function toggleTargetSelects() {
+                var selectedType = $('#applyTypeSelect').val();
+                
+                $('#serviceSelectGroup').hide();
+                $('#membershipSelectGroup').hide();
+
+                if (selectedType === 'SpecificService') {
+                    $('#serviceSelectGroup').slideDown();
+                } else if (selectedType === 'MembershipType') {
+                    $('#membershipSelectGroup').slideDown();
+                }
+            }
+
+            // Gọi lần đầu và khi thay đổi
+            toggleTargetSelects();
+            $('#applyTypeSelect').change(toggleTargetSelects);
         });
     </script>
 }

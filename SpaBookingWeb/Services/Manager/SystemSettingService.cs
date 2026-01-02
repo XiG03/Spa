@@ -81,6 +81,8 @@ namespace SpaBookingWeb.Services.Manager
         public async Task UpdateSettingsAsync(SystemSettingViewModel model)
         {
             string logoPath = model.LogoUrl;
+            
+            // Xử lý upload ảnh nếu có file mới
             if (model.LogoFile != null)
             {
                 logoPath = await SaveImageAsync(model.LogoFile);
@@ -92,27 +94,63 @@ namespace SpaBookingWeb.Services.Manager
                 { "PhoneNumber", model.PhoneNumber },
                 { "Email", model.Email },
                 { "Address", model.Address },
-                { "LogoUrl", logoPath },
+                { "LogoUrl", logoPath }, // Lưu đường dẫn ảnh
                 { "FacebookUrl", model.FacebookUrl },
                 { "OpenTime", model.OpenTime.ToString() },
                 { "CloseTime", model.CloseTime.ToString() },
                 { "DepositPercentage", model.DepositPercentage.ToString() }
             };
 
+            bool hasChanges = false;
+            var changedKeys = new List<string>();
+
             foreach (var kvp in valuesToUpdate)
             {
+                // Tìm setting theo Key (dùng AsNoTracking để tránh xung đột nếu có)
                 var setting = await _context.SystemSettings.FindAsync(kvp.Key);
+                
                 if (setting == null)
                 {
-                    setting = new SystemSetting { SettingKey = kvp.Key, SettingValue = kvp.Value ?? "", Description = $"Cấu hình {kvp.Key}" };
+                    // Nếu chưa có -> Tạo mới (Add)
+                    setting = new SystemSetting 
+                    { 
+                        SettingKey = kvp.Key, 
+                        SettingValue = kvp.Value ?? "", 
+                        Description = $"Cấu hình {kvp.Key}" 
+                    };
                     _context.SystemSettings.Add(setting);
+                    hasChanges = true;
+                    changedKeys.Add(kvp.Key + "(New)");
                 }
                 else
                 {
-                    setting.SettingValue = kvp.Value ?? "";
+                    // Nếu có rồi -> Kiểm tra khác biệt mới Update
+                    if (setting.SettingValue != (kvp.Value ?? ""))
+                    {
+                        setting.SettingValue = kvp.Value ?? "";
+                        _context.SystemSettings.Update(setting); // Đánh dấu update
+                        hasChanges = true;
+                        changedKeys.Add(kvp.Key);
+                    }
                 }
             }
-            await _context.SaveChangesAsync();
+            
+            if (hasChanges)
+            {
+                // Ghi Activity Log để theo dõi
+                var log = new ActivityLog
+                {
+                    Action = "Update",
+                    EntityName = "SystemSettings",
+                    EntityId = "Global",
+                    Description = "Cập nhật cấu hình chung: " + string.Join(", ", changedKeys),
+                    AffectedColumns = "[]" // Hoặc serialize changedKeys nếu muốn chi tiết
+                };
+                _context.ActivityLogs.Add(log);
+
+                // Lưu tất cả vào DB
+                await _context.SaveChangesAsync();
+            }
         }
 
         // --- 2. LOGIC QUẢN LÝ QUYỀN (PERMISSIONS) ---
@@ -227,12 +265,56 @@ namespace SpaBookingWeb.Services.Manager
             }
         }
 
+        // --- 4. LOGIC QUY TẮC ĐẶT CỌC ---
+        public async Task AddDepositRuleAsync(SystemSettingViewModel model)
+        {
+            var rule = new DepositRule
+            {
+                RuleName = model.NewRuleName,
+                ApplyToType = model.NewApplyToType,
+                MinOrderValue = model.NewMinOrderValue,
+                DepositType = model.NewDepositType,
+                DepositValue = model.NewDepositValue,
+                IsActive = true
+            };
+
+            if (model.NewApplyToType == "SpecificService")
+            {
+                rule.TargetServiceId = model.NewTargetServiceId;
+            }
+            else if (model.NewApplyToType == "MembershipType")
+            {
+                rule.TargetMembershipTypeId = model.NewTargetMembershipTypeId;
+            }
+
+            _context.DepositRules.Add(rule);
+            
+            // Ghi Log
+            var log = new ActivityLog 
+            { 
+                Action = "Create", EntityName = "DepositRules", EntityId = rule.RuleName,
+                Description = $"Tạo quy tắc cọc: {rule.RuleName}", AffectedColumns = "[]"
+            };
+            _context.ActivityLogs.Add(log);
+
+            await _context.SaveChangesAsync();
+        }
+
         public async Task DeleteDepositRuleAsync(int id)
         {
             var rule = await _context.DepositRules.FindAsync(id);
             if (rule != null)
             {
                 _context.DepositRules.Remove(rule);
+                
+                // Ghi Log
+                var log = new ActivityLog 
+                { 
+                    Action = "Delete", EntityName = "DepositRules", EntityId = id.ToString(),
+                    Description = $"Xóa quy tắc cọc: {rule.RuleName}", AffectedColumns = "[]"
+                };
+                _context.ActivityLogs.Add(log);
+
                 await _context.SaveChangesAsync();
             }
         }
@@ -240,8 +322,10 @@ namespace SpaBookingWeb.Services.Manager
         private async Task<string> SaveImageAsync(IFormFile imageFile)
         {
             string uniqueFileName = "logo_" + Guid.NewGuid().ToString() + "_" + imageFile.FileName;
+            // Lưu vào thư mục wwwroot/images/system
             string uploadFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images", "system");
             if (!Directory.Exists(uploadFolder)) Directory.CreateDirectory(uploadFolder);
+            
             string filePath = Path.Combine(uploadFolder, uniqueFileName);
             using (var fileStream = new FileStream(filePath, FileMode.Create))
             {
