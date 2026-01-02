@@ -17,15 +17,12 @@ namespace SpaBookingWeb.Services.Manager
         Task AddRoleAsync(string roleName);
         Task DeleteRoleAsync(string roleId);
 
-        // --- MỚI: QUẢN LÝ QUYỀN HẠN (PERMISSIONS) ---
-        // Lấy danh sách quyền (đã có/chưa có) của một Role để hiển thị lên bảng tích chọn
+        // --- QUẢN LÝ QUYỀN HẠN ---
         Task<PermissionViewModel> GetPermissionsByRoleIdAsync(string roleId);
-        
-        // Lưu lại danh sách quyền đã chọn cho Role
         Task UpdatePermissionsAsync(PermissionViewModel model);
-        // ---------------------------------------------
 
         // 4. Quản lý Quy tắc đặt cọc (Deposit Rules)
+        Task AddDepositRuleAsync(SystemSettingViewModel model); 
         Task DeleteDepositRuleAsync(int id);
     }
 }

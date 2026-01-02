@@ -28,20 +28,59 @@ namespace SpaBookingWeb.Areas.Manager.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Index(SystemSettingViewModel model)
         {
-            // ModelState có thể invalid do các field Unit/Role list bị null khi post về
-            // Chúng ta chỉ cần validate các field chính của setting
+            // Bỏ qua validate các field tạo mới (vì chúng có thể null khi chỉ save setting)
+            ModelState.Remove("NewUnitName");
+            ModelState.Remove("NewRoleName");
+            ModelState.Remove("NewRuleName");
+
+            ModelState.Remove("NewApplyToType");
+            ModelState.Remove("NewDepositType");
+            ModelState.Remove("NewDepositValue");
+            ModelState.Remove("NewMinOrderValue");
+            ModelState.Remove("NewTargetServiceId");
+            ModelState.Remove("NewTargetMembershipTypeId");
+            
+            // LogoFile và LogoUrl không bắt buộc phải có giá trị mới khi update
+            ModelState.Remove("LogoFile");
+            ModelState.Remove("LogoUrl");
+
+            // --- SỬA LỖI VALIDATION DANH SÁCH ---
+            // Các danh sách này chỉ dùng để hiển thị (View), không submit về nên bị null -> Remove lỗi
+            ModelState.Remove("AvailableServices");
+            ModelState.Remove("AvailableMembershipTypes");
+            ModelState.Remove("Units");
+            ModelState.Remove("DepositRules");
+            ModelState.Remove("Roles");
+
+
             if (ModelState.IsValid)
             {
                 await _systemSettingService.UpdateSettingsAsync(model);
                 TempData["SuccessMessage"] = "Đã lưu cấu hình chung!";
                 return RedirectToAction(nameof(Index));
             }
-            
-            // Nếu lỗi, load lại list để hiển thị
+            else
+            {
+                var errors = ModelState.Values
+                            .SelectMany(v => v.Errors)
+                            .Select(e => e.ErrorMessage)
+                            .ToList();
+
+                // Gán vào TempData để hiển thị ra View (hoặc dùng ViewBag)
+                TempData["ErrorMessage"] = "Lỗi validation: " + string.Join(" | ", errors);
+            }
+
+            // Reload nếu lỗi
             var reloadModel = await _systemSettingService.GetCurrentSettingsAsync();
-            // Merge dữ liệu form vào model reload
-            reloadModel.SpaName = model.SpaName; 
-            // ... (merge các field khác nếu cần)
+            // Merge dữ liệu form để hiển thị lại
+            reloadModel.SpaName = model.SpaName;
+            reloadModel.PhoneNumber = model.PhoneNumber;
+            reloadModel.Email = model.Email;
+            reloadModel.Address = model.Address;
+            reloadModel.FacebookUrl = model.FacebookUrl;
+            reloadModel.OpenTime = model.OpenTime;
+            reloadModel.CloseTime = model.CloseTime;
+            reloadModel.DepositPercentage = model.DepositPercentage;
 
             return View(reloadModel);
         }
@@ -80,7 +119,16 @@ namespace SpaBookingWeb.Areas.Manager.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // --- DEPOSIT RULE DELETE ---
+        // --- DEPOSIT RULE ACTIONS ---
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddDepositRule(SystemSettingViewModel model)
+        {
+            await _systemSettingService.AddDepositRuleAsync(model);
+            TempData["SuccessMessage"] = "Đã thêm quy tắc đặt cọc mới.";
+            return RedirectToAction(nameof(Index));
+        }
+
         [HttpPost]
         public async Task<IActionResult> DeleteDepositRule(int id)
         {
@@ -89,6 +137,7 @@ namespace SpaBookingWeb.Areas.Manager.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        // --- PERMISSIONS ---
         [HttpGet]
         public async Task<IActionResult> ManagePermissions(string roleId)
         {
@@ -107,7 +156,7 @@ namespace SpaBookingWeb.Areas.Manager.Controllers
         {
             await _systemSettingService.UpdatePermissionsAsync(model);
             TempData["SuccessMessage"] = $"Đã cập nhật quyền hạn cho nhóm {model.RoleName}.";
-            return RedirectToAction(nameof(Index)); // Quay về trang cấu hình
+            return RedirectToAction(nameof(Index));
         }
     }
 }
