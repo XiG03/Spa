@@ -10,6 +10,7 @@ using SpaBookingWeb.Authorization;
 using SpaBookingWeb.Services.Interfaces;
 using SpaBookingWeb.Services.Implements;
 using SpaBookingWeb.Hubs;
+using SpaBookingWeb.Services.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,6 +60,12 @@ builder.Services.AddScoped<IDashboardService,DashboardService>();
 //Services Injection for Root
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<INotificationService,NotificationService>();
+
+
+//Service for Client (Customer)
+builder.Services.AddScoped<IClientHomeService,ClientHomeService>();
+builder.Services.AddScoped<IServiceListService,ServiceListService>();
+builder.Services.AddScoped<IBookingService,BookingService>();
 
 
 // Authorization with Permission

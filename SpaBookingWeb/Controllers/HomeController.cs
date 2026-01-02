@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.CodeAnalysis.Elfie.Serialization;
 using SpaBookingWeb.Models;
+using SpaBookingWeb.Services.Client;
 
 namespace SpaBookingWeb.Controllers
 {
@@ -9,14 +11,23 @@ namespace SpaBookingWeb.Controllers
     {
         private readonly ILogger<HomeController> _logger;
 
-        public HomeController(ILogger<HomeController> logger)
+        private readonly IClientHomeService _clientHomeService;
+
+        public HomeController(ILogger<HomeController> logger, IClientHomeService clientHomeService)
         {
             _logger = logger;
+            _clientHomeService = clientHomeService;
         }
 
         public IActionResult Index()
         {
             return View();
+        }
+
+        public async Task<IActionResult> HomeClient()
+        {
+            var model = await _clientHomeService.GetHomeDataAsync();
+            return View(model);
         }
 
         [Authorize]
