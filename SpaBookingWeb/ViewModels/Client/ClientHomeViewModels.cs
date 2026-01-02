@@ -9,6 +9,14 @@ namespace SpaBookingWeb.ViewModels.Client
         public List<ComboViewModel> FeaturedCombos { get; set; } = new List<ComboViewModel>();
         public List<ServiceViewModel> FeaturedServices { get; set; } = new List<ServiceViewModel>();
         public PromotionViewModel CurrentPromotion { get; set; } // Banner ưu đãi
+
+        public string OpenTime { get; set; }
+        public string CloseTime { get; set; }
+        public string FacebookUrl { get; set; }
+        public string SpaName { get; set; }
+        public string Address { get; set; }
+        public string Hotline {get; set;}
+        public string Email {get; set;}
     }
 
     public class ServiceCategoryViewModel

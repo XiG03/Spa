@@ -10,7 +10,7 @@
 <head>
   <meta charset="utf-8" />
   <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-  <title>SpaBookingWeb - Trang chủ của tôi</title>
+  <title>@Model.SpaName - Trang chủ</title>
   <link href="https://fonts.googleapis.com" rel="preconnect" />
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
   <link
@@ -71,7 +71,7 @@
           <div
             class="flex items-center gap-4 text-text-main dark:text-white cursor-pointer hover:opacity-80 transition-opacity">
             <span class="material-symbols-outlined text-primary text-3xl">spa</span>
-            <h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">SpaBookingWeb</h2>
+            <h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">@Model.SpaName</h2>
           </div>
         </div>
         <div class="hidden md:flex flex-1 justify-end gap-8 items-center">
@@ -87,7 +87,7 @@
           </div>
           <button
             class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-6 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary-dark transition-colors shadow-md shadow-pink-200 dark:shadow-none">
-            <a class="truncate" asp-area="" asp-controller="Booking" asp-action="Index" >Đặt lịch ngay</a>
+            <a class="truncate" asp-area="" asp-controller="Booking" asp-action="Index">Đặt lịch ngay</a>
           </button>
         </div>
         <div class="flex md:hidden items-center">
@@ -95,6 +95,8 @@
         </div>
       </header>
     </div>
+
+    <!-- MAIN CONTENT GIỮ NGUYÊN (Banner, Category, Combo, Services, Promotion...) -->
     <div class="w-full bg-white dark:bg-background-dark">
       <div class="@@container">
         <div
@@ -109,7 +111,7 @@
               Chăm sóc bản thân với dịch vụ đẳng cấp 5 sao
             </h1>
             <h2 class="text-pink-50 text-base font-medium leading-normal md:text-xl drop-shadow-sm max-w-2xl">
-              Khám phá các liệu trình độc quyền và combo ưu đãi dành riêng cho bạn tại MySalon.
+              Khám phá các liệu trình độc quyền và combo ưu đãi dành riêng cho bạn tại @Model.SpaName.
             </h2>
             <div class="mt-4 flex gap-4">
               <button
@@ -132,7 +134,8 @@
             <div class="flex items-center justify-between mb-6">
               <h2 class="text-gray-900 dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em]">Danh mục
                 dịch vụ</h2>
-              <a class="text-sm font-medium text-pink-600 dark:text-primary hover:underline" asp-area="" asp-controller="Services" asp-action="Create">Xem tất cả</a>
+              <a class="text-sm font-medium text-pink-600 dark:text-primary hover:underline" asp-area=""
+                asp-controller="Services" asp-action="Index">Xem tất cả</a>
             </div>
             <div class="flex overflow-x-auto no-scrollbar gap-4 md:gap-8 pb-4 -mx-4 px-4 md:mx-0 md:px-0">
               @foreach (var cat in Model.Categories)
@@ -253,9 +256,12 @@
                 <div class="flex gap-4 pt-2">
                   <button
                     class="bg-primary hover:bg-primary-dark text-white font-bold py-3 px-6 rounded-xl transition-colors shadow-lg">
-                    <a asp-area="" asp-controller="Booking" asp-action="Index" >Đặt lịch ngay</a>
+                    <a asp-area="" asp-controller="Booking" asp-action="Index">Đặt lịch ngay</a>
                   </button>
-
+                  <button
+                    class="bg-transparent border border-pink-300 hover:border-white text-white font-bold py-3 px-6 rounded-xl transition-colors">
+                    Xem chi tiết
+                  </button>
                 </div>
               </div>
               <div
@@ -266,14 +272,25 @@
           </section>
         </div>
       </div>
+
+      <!-- FOOTER -->
       <footer
         class="bg-white dark:bg-background-dark border-t border-pink-100 dark:border-pink-900 pt-12 pb-8 px-4 md:px-10 lg:px-40">
         <div class="max-w-[1440px] mx-auto flex flex-col gap-8">
           <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
             <div class="flex flex-col gap-4">
-              <h4 class="font-bold text-gray-900 dark:text-white">MySalon</h4>
+              <h4 class="font-bold text-gray-900 dark:text-white">@Model.SpaName</h4>
+              <p class="text-sm text-text-muted dark:text-gray-400">
+                @Model.Address
+              </p>
               <p class="text-sm text-gray-500 dark:text-gray-400">
                 Mang đến vẻ đẹp và sự tự tin cho bạn mỗi ngày với các dịch vụ chuyên nghiệp nhất.
+              </p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                Hotline: @Model.Hotline
+              </p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                Email: @Model.Email
               </p>
             </div>
             <div class="flex flex-col gap-4">
@@ -298,25 +315,29 @@
               <a class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors" href="#">Điều
                 khoản sử dụng</a>
             </div>
+            <!-- CẬP NHẬT GIỜ MỞ CỬA TỪ DATABASE -->
             <div class="flex flex-col gap-4">
               <h4 class="font-bold text-gray-900 dark:text-white">Giờ mở cửa</h4>
-              <p class="text-sm text-gray-500 dark:text-gray-400">Thứ 2 - Thứ 6: 9:00 - 20:00</p>
-              <p class="text-sm text-gray-500 dark:text-gray-400">Thứ 7 - CN: 8:00 - 21:00</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Thứ 2 - Thứ 6: @Model.OpenTime - @Model.CloseTime</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Thứ 7 - CN: @Model.OpenTime - @Model.CloseTime</p>
             </div>
           </div>
           <div
             class="flex flex-col md:flex-row items-center justify-between border-t border-pink-100 dark:border-pink-900 pt-8 gap-4">
             <div class="flex items-center gap-2 text-gray-900 dark:text-white">
-              <div class="size-6 text-primary">
-                <svg class="w-full h-full" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M44 4H30.6666V17.3334H17.3334V30.6666H4V44H44V4Z" fill="currentColor"></path>
-                </svg>
+              <div class="flex items-center gap-4 text-gray-900 dark:text-white">
+                <div
+                  class="flex items-center gap-4 text-text-main dark:text-white cursor-pointer hover:opacity-80 transition-opacity">
+                  <span class="material-symbols-outlined text-primary text-3xl">spa</span>
+                  <h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">@Model.SpaName</h2>
+                </div>
               </div>
-              <span class="font-bold">MySalon</span>
-              <span class="text-sm text-gray-500 dark:text-gray-500 ml-2">© 2023 MySalon Inc.</span>
+              <span class="text-sm text-gray-500 dark:text-gray-500 ml-2">© 2024 @Model.SpaName Inc.</span>
             </div>
+            <!-- CẬP NHẬT LINK FACEBOOK TỪ DATABASE -->
             <div class="flex gap-4">
-              <a class="text-gray-400 dark:text-gray-400 hover:text-primary transition-colors" href="#">
+              <a class="text-gray-400 dark:text-gray-400 hover:text-primary transition-colors" href="@Model.FacebookUrl"
+                target="_blank">
                 <span class="sr-only">Facebook</span>
                 <svg aria-hidden="true" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
                   <path clip-rule="evenodd"

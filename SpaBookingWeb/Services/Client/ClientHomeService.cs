@@ -21,23 +21,20 @@ namespace SpaBookingWeb.Services.Client
         {
             var model = new ClientHomeViewModel();
 
-            // 1. Lấy danh mục dịch vụ (Chỉ lấy các danh mục có chứa dịch vụ active)
-            // Giả định bạn có hình ảnh cho category, nếu không sẽ dùng placeholder
+            // 1. Lấy danh mục dịch vụ
             var categories = await _context.Categories
                 .Where(c => c.Type == "Service" && c.Services.Any(s => s.IsActive && !s.IsDeleted))
                 .Select(c => new ServiceCategoryViewModel
                 {
                     CategoryId = c.CategoryId,
                     CategoryName = c.CategoryName,
-                    // Logic lấy ảnh: Có thể map cứng hoặc lấy từ DB nếu có cột Image
                     IconUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuChowAKQh8Np34mUy3hNdqX1rQjOMLk9C5Q_vI5b62pqkcuehV6ZeCJTEazmNy7tubwWSfnZ1qKjlQxEiIiAS5v8Yr7PZwT2R0H9LZZWTxg8NG8SYPfCzwI1kK3OxX7MNgBY-WDvjdTgOR3i4FoVwCVvwQWmcFB6RmVMCgAJmnX7VRFqF6GLSGDwch3NUboe7Ytb5V9lVvdhlNsOoLMFGoTeGSs9rINvFN7U09GV4gvVHSaIRxOELgfKoexTZs5Wt6UC2YuYextLL0" 
                 })
-                .Take(6) // Lấy 6 danh mục tiêu biểu
+                .Take(6)
                 .ToListAsync();
             model.Categories = categories;
 
             // 2. Lấy Combo nổi bật
-            // Giả sử lấy top 3 combo mới nhất hoặc theo tiêu chí nào đó
             var combos = await _context.Combos
                 .Include(c => c.ComboDetails).ThenInclude(cd => cd.Service)
                 .Where(c => !c.IsDeleted)
@@ -51,18 +48,17 @@ namespace SpaBookingWeb.Services.Client
                 Description = string.Join(" • ", c.ComboDetails.Select(cd => cd.Service.ServiceName)),
                 ImageUrl = string.IsNullOrEmpty(c.Image) ? "https://lh3.googleusercontent.com/aida-public/AB6AXuBOWoiZ3GQ5WjeKEosSAO4jhVKq4YDyjUKosHqWeOXFxud_ATIyG1fvTOLBYt7m3VTipdp8fBzyscW-F_3tJFiZh18KsSwxVj1EbZXNCa5CHUNq6AFZOv_nzFs-9YlzMnyaPAGyuEouKSR_aTnp4fPso4p-x5leDhjMfK9eO-UAtSZg6fZP_OwlOE33ihdTBL5RtqI79c7M42zugRJzJ4IRVBb58wGZ4op7MruYzcAnNDgdtqQfiXCoNmECcQ2Ht3aE1gjbCfB3vRc" : c.Image,
                 Price = c.Price,
-                // Tính giá gốc bằng tổng giá các dịch vụ lẻ
                 OriginalPrice = c.ComboDetails.Sum(cd => cd.Service.Price),
                 DurationMinutes = c.ComboDetails.Sum(cd => cd.Service.DurationMinutes),
-                IsBestSeller = true, // Logic này có thể lấy từ thống kê order
+                IsBestSeller = true,
                 StatusText = "Đặt ngay hôm nay"
             }).ToList();
 
-            // 3. Lấy Dịch vụ nổi bật (Top 4)
+            // 3. Lấy Dịch vụ nổi bật
             var services = await _context.Services
                 .Include(s => s.Category)
                 .Where(s => s.IsActive && !s.IsDeleted)
-                .OrderByDescending(s => s.ServiceId) // Hoặc logic khác như nhiều người đặt
+                .OrderByDescending(s => s.ServiceId)
                 .Take(4)
                 .ToListAsync();
 
@@ -73,19 +69,17 @@ namespace SpaBookingWeb.Services.Client
                 CategoryName = s.Category?.CategoryName ?? "Dịch vụ",
                 Price = s.Price,
                 ImageUrl = string.IsNullOrEmpty(s.Image) ? "https://lh3.googleusercontent.com/aida-public/AB6AXuBRPqf-JGVzjlnQDY50Mknpw_BGK0hLt7hkBomlBoy2VVMjekMF1MVs4olKseiEfAVCJWp7z-5t2EZbHPBCRJurE4IUgUhiSsVcKiyuQU_VUwtLORxfStzA7JQf8c0i9Xjw6mJLVGbH9dD5iD1Np_Y4_gn6lYKViFtoKkrUkVB7A6Zj4QBBBnlbmaUWKMafzBLCZu2es8JcnjYTEVt1UWZRG9K30EyxQ9cM2vA2E_SoSmpQr0kUgBwStX2iRnuIs09ujjgwNa4fvls" : s.Image,
-                Rating = 5.0 // Tạm thời hardcode, sau này join bảng Reviews để tính
+                Rating = 5.0
             }).ToList();
 
-            // 4. Ưu đãi (Lấy từ bảng Vouchers)
-            // Lấy voucher đang hoạt động, chưa hết hạn, và chưa bị xóa
+            // 4. Ưu đãi
             var activeVoucher = await _context.Vouchers
                 .Where(v => v.IsActive && !v.IsDeleted && v.StartDate <= DateTime.Now && v.EndDate >= DateTime.Now)
-                .OrderByDescending(v => v.DiscountValue) // Ưu tiên voucher giảm giá nhiều nhất
+                .OrderByDescending(v => v.DiscountValue)
                 .FirstOrDefaultAsync();
 
             if (activeVoucher != null)
             {
-                // Format chuỗi giảm giá
                 string discountText = activeVoucher.DiscountType == "Percent" 
                     ? $"{activeVoucher.DiscountValue:0}%" 
                     : $"{activeVoucher.DiscountValue:N0}đ";
@@ -100,7 +94,6 @@ namespace SpaBookingWeb.Services.Client
             }
             else
             {
-                // Fallback nếu không có voucher nào active
                 model.CurrentPromotion = new PromotionViewModel
                 {
                     Title = "Rạng rỡ đón hè cùng MySalon",
@@ -109,6 +102,26 @@ namespace SpaBookingWeb.Services.Client
                     BackgroundImage = "https://lh3.googleusercontent.com/aida-public/AB6AXuBpHMYwS4e9oCrd_jAN7pXZzMAepjREtJHjK2qFEnoAiJvgFziruiMQq0jGdDKjlXtUmb4i5Qe7nsP2t46nT30jL2hRYctmxxcGR3bZutDZx7JGqf83aRRxB_NYh6-jkNqZPZi-LutywXPcuAsKQZh8h5gM6BvyZPE1TNEofy04BDfF1ag1se1iXL0lUEZM_Rrft_Rsb1TcxmpK59BcSof8eFb1iXEn26jMOa1-43UusrSFL08STbtIXP2CWCF6Bvle2Zb1V8u_0Rw"
                 };
             }
+
+            // --- 5. MỚI: LẤY CẤU HÌNH HỆ THỐNG ---
+            var settings = await _context.SystemSettings.ToListAsync();
+            var dict = settings.ToDictionary(s => s.SettingKey, s => s.SettingValue);
+
+            // Format giờ đẹp (cắt bỏ giây nếu có) - VD: 09:00:00 -> 09:00
+            string FormatTime(string timeStr)
+            {
+                if (TimeSpan.TryParse(timeStr, out var ts))
+                    return ts.ToString(@"hh\:mm");
+                return timeStr;
+            }
+
+            model.OpenTime = dict.ContainsKey("OpenTime") ? FormatTime(dict["OpenTime"]) : "09:00";
+            model.CloseTime = dict.ContainsKey("CloseTime") ? FormatTime(dict["CloseTime"]) : "20:00";
+            model.FacebookUrl = dict.ContainsKey("FacebookUrl") ? dict["FacebookUrl"] : "#";
+            model.SpaName = dict.ContainsKey("SpaName") ? dict["SpaName"] : "MySalon";
+            model.Address = dict.ContainsKey("Address") ? dict["Address"] : "Địa chỉ Spa";
+            model.Hotline = dict.ContainsKey("PhoneNumber") ? dict ["PhoneNumber"] : "Hotline liên hệ";
+            model.Email = dict.ContainsKey("Email") ? dict ["Email"] : "Email";
 
             return model;
         }
