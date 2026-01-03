@@ -11,6 +11,8 @@ using SpaBookingWeb.Services.Interfaces;
 using SpaBookingWeb.Services.Implements;
 using SpaBookingWeb.Hubs;
 using SpaBookingWeb.Services.Client;
+using Microsoft.AspNetCore.Session;
+using Microsoft.AspNetCore.Authentication.Google;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,15 +35,21 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 })
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
-builder.Services.AddAuthentication()
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = IdentityConstants.ApplicationScheme;
+    options.DefaultSignInScheme = IdentityConstants.ApplicationScheme;
+    options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+})
 .AddGoogle(options =>
 {
     options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
     options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+    options.SaveTokens = true;
 });
 
 
-builder.Services.AddScoped<MomoService, MomoService>();
+
 
 //Services Injection for Manager
 builder.Services.AddScoped<ICustomerService, CustomerService>();
@@ -52,20 +60,21 @@ builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
-builder.Services.AddScoped<IBlogPostService,BlogPostService>();
-builder.Services.AddScoped<IProfileService,ProfileService>();
-builder.Services.AddScoped<IDashboardService,DashboardService>();
+builder.Services.AddScoped<IBlogPostService, BlogPostService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 
 //Services Injection for Root
 builder.Services.AddScoped<IEmailService, EmailService>();
-builder.Services.AddScoped<INotificationService,NotificationService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<MomoService>();
 
 
 //Service for Client (Customer)
-builder.Services.AddScoped<IClientHomeService,ClientHomeService>();
-builder.Services.AddScoped<IServiceListService,ServiceListService>();
-builder.Services.AddScoped<IBookingService,BookingService>();
+builder.Services.AddScoped<IClientHomeService, ClientHomeService>();
+builder.Services.AddScoped<IServiceListService, ServiceListService>();
+builder.Services.AddScoped<IBookingService, BookingService>();
 
 
 // Authorization with Permission
@@ -74,6 +83,16 @@ builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProv
 
 
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddDistributedMemoryCache(); // BẮT BUỘC
+
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+
+});
 
 
 builder.Services.AddControllersWithViews();
@@ -87,6 +106,7 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+    app.UseDeveloperExceptionPage(); // 🔥 BẮT BUỘC
     app.UseMigrationsEndPoint();
 }
 else
@@ -100,6 +120,8 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+app.UseSession();
 
 
 app.UseAuthentication();

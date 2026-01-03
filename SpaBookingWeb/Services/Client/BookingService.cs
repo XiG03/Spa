@@ -1,6 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using SpaBookingWeb.Data;
 using SpaBookingWeb.Models;
+using SpaBookingWeb.Services.Manager;
 using SpaBookingWeb.ViewModels.Client;
 using System;
 using System.Collections.Generic;
@@ -12,109 +15,65 @@ namespace SpaBookingWeb.Services.Client
     public class BookingService : IBookingService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ISystemSettingService _systemSettingService;
 
-        public BookingService(ApplicationDbContext context)
+        public BookingService(ApplicationDbContext context,
+                              IHttpContextAccessor httpContextAccessor,
+                              ISystemSettingService systemSettingService)
         {
             _context = context;
+            _httpContextAccessor = httpContextAccessor;
+            _systemSettingService = systemSettingService;
+        }
+
+        // --- SESSION ---
+        private ISession Session => _httpContextAccessor.HttpContext?.Session ?? throw new InvalidOperationException("Session is not available");
+
+        public BookingSessionModel GetSession()
+        {
+            var json = Session.GetString("BookingSession");
+            return json == null
+            ? null : JsonConvert.DeserializeObject<BookingSessionModel>(json);
+        }
+
+        public void SaveSession(BookingSessionModel session)
+        {
+            var json = JsonConvert.SerializeObject(session);
+            Session.SetString("BookingSession", json);
+        }
+
+        public void ClearSession()
+        {
+            Session.Remove("BookingSession");
         }
 
         public async Task<BookingPageViewModel> GetBookingPageDataAsync()
         {
             var model = new BookingPageViewModel();
-
-            // 1. Lấy danh sách Dịch vụ (Service)
-            var services = await _context.Services
-                .Include(s => s.Category)
-                .Where(s => s.IsActive && !s.IsDeleted)
-                .ToListAsync();
-
-            // Nhóm dịch vụ theo Category
-            var groupedServices = services
-                .GroupBy(s => s.Category?.CategoryName ?? "Khác")
-                .Select(g => new ServiceCategoryGroupViewModel
-                {
-                    CategoryName = g.Key,
-                    Services = g.Select(s => new ServiceItemViewModel
-                    {
-                        Id = s.ServiceId,
-                        Name = s.ServiceName,
-                        Description = s.Description,
-                        Price = s.Price,
-                        DurationMinutes = s.DurationMinutes,
-                        Type = "Service"
-                    }).ToList()
-                }).ToList();
-
-            // Có thể thêm Combo vào nhóm riêng nếu muốn
-            var combos = await _context.Combos.Where(c => !c.IsDeleted).ToListAsync();
-            if (combos.Any())
-            {
-                groupedServices.Insert(0, new ServiceCategoryGroupViewModel
-                {
-                    CategoryName = "Combo & Gói Dịch Vụ",
-                    Services = combos.Select(c => new ServiceItemViewModel
-                    {
-                        Id = c.ComboId, // Lưu ý: Cần xử lý logic ID để phân biệt Service và Combo (ví dụ dùng prefix hoặc negative ID)
-                        Name = c.ComboName,
-                        Description = c.Description,
-                        Price = c.Price,
-                        // DurationMinutes = ... (Tính tổng duration của combo nếu cần)
-                        DurationMinutes = 60, // Tạm thời hardcode hoặc tính toán từ ComboDetails
-                        Type = "Combo"
-                    }).ToList()
-                });
-            }
-
-            model.ServiceCategories = groupedServices;
-
-            // 2. Lấy danh sách Nhân viên (Staff)
-            var employees = await _context.Employees
-                .Where(e => e.IsActive && !e.IsDeleted)
-                .Select(e => new StaffViewModel
-                {
-                    Id = e.EmployeeId,
-                    Name = e.FullName,
-                    Role = "Kỹ thuật viên", // Hoặc lấy từ TechnicianDetail
-                    Avatar = e.Avatar ?? "https://lh3.googleusercontent.com/aida-public/AB6AXuASiaYq9pFRIPi507zEhqW_PMoFXkzaX6pDRv6ULDlqjtSVXPxeT7CxZERJHhZZNrAKqgAvXZdebiOeaxv_xFiXNBlSBVAca7I1owHT8C-C2Xw36lF_uIzKQ8iKYDReM8Op3USARj8ymsswxzYHN-DdW6tV1s4onET0rRQZsQ0LmxOYw3a1RwB-C1JmdJx7pNakp6QBEXiasOcUmVO-rqTdQLy22fg4w3TpVLrWPB-NuLj3OEmCSudFPBzc7cfpbQaXIHRoTU_nd6A" // Placeholder
-                })
-                .ToListAsync();
-
-            model.Staffs = employees;
-
+            var services = await _context.Services.Include(s => s.Category).Where(s => s.IsActive && !s.IsDeleted).ToListAsync();
+            model.ServiceCategories = services.GroupBy(s => s.Category?.CategoryName ?? "Khác").Select(g => new ServiceCategoryGroupViewModel { CategoryName = g.Key, Services = g.Select(s => new ServiceItemViewModel { Id = s.ServiceId, Name = s.ServiceName, Description = s.Description, Price = s.Price, DurationMinutes = s.DurationMinutes, Type = "Service" }).ToList() }).ToList();
+            model.Staffs = await _context.Employees.Where(e => e.IsActive && !e.IsDeleted).Select(e => new StaffViewModel { Id = e.EmployeeId, Name = e.FullName, Role = "Kỹ thuật viên", Avatar = e.Avatar ?? "/img/default-avatar.png" }).ToListAsync();
             return model;
         }
 
-        public async Task<List<TimeSpan>> GetAvailableTimeSlotsAsync(DateTime date, int? staffId, int totalDuration)
+        public async Task<List<string>> GetAvailableTimeSlotsAsync(DateTime date, BookingSessionModel session)
         {
-            // Logic đơn giản: Trả về các khung giờ cố định. 
-            // Thực tế cần check lịch làm việc (WorkSchedule) và các Appointment đã có để loại trừ.
-            var slots = new List<TimeSpan>();
-            var startTime = new TimeSpan(9, 0, 0); // 9:00 AM
-            var endTime = new TimeSpan(20, 0, 0); // 8:00 PM
-
-            while (startTime.Add(TimeSpan.FromMinutes(totalDuration)) <= endTime)
-            {
-                // TODO: Check database xem giờ này staff có bận không
-                slots.Add(startTime);
-                startTime = startTime.Add(TimeSpan.FromMinutes(30)); // Bước nhảy 30 phút
-            }
-
-            return await Task.FromResult(slots);
+            var settings = await _systemSettingService.GetCurrentSettingsAsync();
+            var openTime = settings.OpenTime;
+            var closeTime = settings.CloseTime;
+            var slots = new List<string>();
+            for (var time = openTime; time < closeTime; time = time.Add(TimeSpan.FromMinutes(30))) { slots.Add(time.ToString(@"hh\:mm")); }
+            return slots;
         }
 
-        public async Task<int> CreateBookingAsync(BookingSubmissionModel model, string userId = null)
+        public async Task<int> SaveBookingAsync(BookingSessionModel session)
         {
-            // 1. Tìm hoặc tạo Customer
-            var customer = await _context.Customers.FirstOrDefaultAsync(c => c.PhoneNumber == model.CustomerPhone);
+            // 1. Tạo/Lấy khách hàng
+            var customer = await _context.Customers.FirstOrDefaultAsync(c => c.PhoneNumber == session.CustomerInfo.Phone);
             if (customer == null)
             {
-                customer = new Customer
-                {
-                    FullName = model.CustomerName,
-                    PhoneNumber = model.CustomerPhone,
-                    Email = model.CustomerEmail,
-                    // MembershipTypeId = ... (Mặc định)
-                };
+                customer = new Customer { FullName = session.CustomerInfo.FullName, PhoneNumber = session.CustomerInfo.Phone, Email = session.CustomerInfo.Email };
                 _context.Customers.Add(customer);
                 await _context.SaveChangesAsync();
             }
@@ -123,54 +82,122 @@ namespace SpaBookingWeb.Services.Client
             var appointment = new Appointment
             {
                 CustomerId = customer.CustomerId,
-                EmployeeId = model.SelectedStaffId,
-                StartTime = model.SelectedDate.Date + model.SelectedTime,
-                // EndTime tính toán dựa trên tổng duration dịch vụ
-                Status = "Pending",
-                Notes = model.Note,
-                CreatedDate = DateTime.Now,
-                IsDepositPaid = false
-            };
-
-            // Tính tổng tiền và thời gian
-            decimal totalAmount = 0;
-            int totalDuration = 0;
-
-            // Xử lý Services/Combos đã chọn
-            // Lưu ý: Logic này đang giả định model.SelectedServiceIds chứa ID của Service. 
-            // Nếu có cả Combo, cần logic tách biệt ID.
-            
-            // Tạm thời xử lý Service
-            var selectedServices = await _context.Services.Where(s => model.SelectedServiceIds.Contains(s.ServiceId)).ToListAsync();
-            
-            appointment.AppointmentDetails = new List<AppointmentDetail>();
-            foreach (var service in selectedServices)
-            {
-                appointment.AppointmentDetails.Add(new AppointmentDetail
-                {
-                    ServiceId = service.ServiceId,
-                    PriceAtBooking = service.Price,
-                    TechnicianId = model.SelectedStaffId // Tạm gán staff chính cho tất cả dịch vụ
-                });
-                totalAmount += service.Price;
-                totalDuration += service.DurationMinutes;
-            }
-
-            appointment.EndTime = appointment.StartTime.AddMinutes(totalDuration);
-
-            // Tạo Invoice dự kiến (Optional)
-            appointment.Invoice = new Invoice
-            {
-                TotalAmount = totalAmount,
-                FinalAmount = totalAmount,
-                PaymentStatus = "Unpaid",
+                StartTime = session.SelectedDate.Value.Add(session.SelectedTime.Value),
+                EndTime = session.SelectedDate.Value.Add(session.SelectedTime.Value).AddMinutes(60),
+                Status = "Pending", // Chờ thanh toán/xác nhận
+                Notes = session.CustomerInfo.Note + (session.IsGroupBooking ? $" [Nhóm {session.Members.Count} người]" : ""),
+                DepositAmount = session.DepositAmount,
+                IsDepositPaid = false, // Mặc định chưa thanh toán cọc
                 CreatedDate = DateTime.Now
             };
-
             _context.Appointments.Add(appointment);
             await _context.SaveChangesAsync();
 
+            // 3. Tạo Appointment Details
+            foreach (var member in session.Members)
+            {
+                foreach (var serviceId in member.SelectedServiceIds)
+                {
+                    // [SỬA LỖI] Lấy giá tiền của dịch vụ để gán vào PriceAtBooking
+                    var servicePrice = await _context.Services
+                        .Where(s => s.ServiceId == serviceId)
+                        .Select(s => s.Price)
+                        .FirstOrDefaultAsync();
+
+                    // Xác định nhân viên thực hiện (nếu đã chọn)
+                    int? selectedStaffId = null;
+                    if (member.ServiceStaffMap != null && member.ServiceStaffMap.ContainsKey(serviceId))
+                    {
+                        selectedStaffId = member.ServiceStaffMap[serviceId];
+                    }
+
+                    _context.AppointmentDetails.Add(new AppointmentDetail
+                    {
+                        AppointmentId = appointment.AppointmentId,
+                        ServiceId = serviceId,
+                        TechnicianId = selectedStaffId,
+                        PriceAtBooking = servicePrice, // Biến này giờ đã được khai báo ở trên
+                        Status = "Pending"
+                    });
+                }
+            }
+
+            // 4. Tạo Invoice
+            var invoice = new Invoice
+            {
+                AppointmentId = appointment.AppointmentId,
+                TotalAmount = session.TotalAmount,
+                DepositDeduction = session.DepositAmount,
+                FinalAmount = session.TotalAmount - session.DepositAmount,
+                PaymentStatus = "Unpaid",
+                CreatedDate = DateTime.Now
+            };
+            _context.Invoices.Add(invoice);
+            await _context.SaveChangesAsync();
+
             return appointment.AppointmentId;
+        }
+
+        // [MỚI] Cập nhật trạng thái sau khi thanh toán thành công
+        public async Task UpdateDepositStatusAsync(int appointmentId, string transactionId)
+        {
+            var appointment = await _context.Appointments.FindAsync(appointmentId);
+            if (appointment != null)
+            {
+                // Cập nhật trạng thái Appointment
+                appointment.IsDepositPaid = true;
+                appointment.Status = "Confirmed"; // Đã cọc -> Xác nhận luôn
+
+                // Cập nhật Invoice & Tạo Payment log
+                var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.AppointmentId == appointmentId);
+                if (invoice != null)
+                {
+                    invoice.PaymentStatus = "DepositPaid";
+
+                    // Lưu lịch sử giao dịch
+                    _context.Payments.Add(new Payment
+                    {
+                        InvoiceId = invoice.InvoiceId,
+                        Amount = appointment.DepositAmount,
+                        PaymentMethod = "Momo",
+                        TransactionType = "Deposit", // Loại giao dịch: Đặt cọc
+                        PaymentDate = DateTime.Now
+                        // Bạn có thể lưu transactionId của MoMo vào trường ghi chú nếu muốn
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        // [MỚI] Lấy dữ liệu hiển thị trang Success
+        public async Task<AppointmentSuccessViewModel> GetAppointmentSuccessInfoAsync(int appointmentId)
+        {
+            var app = await _context.Appointments
+                .Include(a => a.Customer)
+                .Include(a => a.AppointmentDetails).ThenInclude(ad => ad.Service)
+                .Include(a => a.AppointmentDetails).ThenInclude(ad => ad.Technician)
+                .Include(a => a.Invoice)
+                .FirstOrDefaultAsync(a => a.AppointmentId == appointmentId);
+
+            if (app == null) return null;
+
+            return new AppointmentSuccessViewModel
+            {
+                AppointmentId = app.AppointmentId,
+                CustomerName = app.Customer.FullName,
+                TimeSlot = $"{app.StartTime:HH:mm} - {app.StartTime:ddd, dd/MM}",
+                Services = app.AppointmentDetails.Select(ad => new ServiceSuccessItem
+                {
+                    ServiceName = ad.Service?.ServiceName,
+                    StaffName = ad.Technician?.FullName ?? "Bất kỳ ai",
+                    Duration = ad.Service?.DurationMinutes ?? 0,
+                    Price = ad.PriceAtBooking
+                }).ToList(),
+                TotalAmount = app.Invoice.TotalAmount,
+                DepositAmount = app.DepositAmount,
+                IsDepositPaid = app.IsDepositPaid
+            };
         }
     }
 }
