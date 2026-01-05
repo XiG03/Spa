@@ -6,7 +6,7 @@ using SpaBookingWeb.Models;
 using SpaBookingWeb.Services;
 using SpaBookingWeb.Services.Manager;
 using Microsoft.AspNetCore.Authorization;
-using SpaBookingWeb.Authorization;
+
 using SpaBookingWeb.Services.Interfaces;
 using SpaBookingWeb.Services.Implements;
 using SpaBookingWeb.Hubs;
@@ -78,7 +78,7 @@ builder.Services.AddScoped<IBookingService, BookingService>();
 
 
 // Authorization with Permission
-builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+
 
 
 

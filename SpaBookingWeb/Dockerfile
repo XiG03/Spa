@@ -7,7 +7,7 @@ RUN dotnet restore "SpaBookingWeb/SpaBookingWeb.csproj"
 
 COPY . .
 WORKDIR "/src/SpaBookingWeb"
-RUN dotnet publish "SpaBookingWeb.csproj" -c Release -o /app/publish /p:TreatWarningsAsErrors=false
+RUN dotnet publish -c Release -o /app/publish /p:TreatWarningsAsErrors=false
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
