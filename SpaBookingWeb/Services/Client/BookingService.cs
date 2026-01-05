@@ -33,8 +33,7 @@ namespace SpaBookingWeb.Services.Client
         public BookingSessionModel GetSession()
         {
             var json = Session.GetString("BookingSession");
-            return json == null
-            ? null : JsonConvert.DeserializeObject<BookingSessionModel>(json);
+            return json == null ? null : JsonConvert.DeserializeObject<BookingSessionModel>(json);
         }
 
         public void SaveSession(BookingSessionModel session)
@@ -48,6 +47,7 @@ namespace SpaBookingWeb.Services.Client
             Session.Remove("BookingSession");
         }
 
+        // --- DATA PROVIDERS ---
         public async Task<BookingPageViewModel> GetBookingPageDataAsync()
         {
             var model = new BookingPageViewModel();
@@ -57,19 +57,200 @@ namespace SpaBookingWeb.Services.Client
             return model;
         }
 
+        // --- LOGIC TÌM GIỜ TRỐNG THÔNG MINH ---
         public async Task<List<string>> GetAvailableTimeSlotsAsync(DateTime date, BookingSessionModel session)
         {
+            // 1. Lấy cấu hình giờ mở cửa
             var settings = await _systemSettingService.GetCurrentSettingsAsync();
             var openTime = settings.OpenTime;
             var closeTime = settings.CloseTime;
-            var slots = new List<string>();
-            for (var time = openTime; time < closeTime; time = time.Add(TimeSpan.FromMinutes(30))) { slots.Add(time.ToString(@"hh\:mm")); }
-            return slots;
+            var currentTime = DateTime.Now;
+            bool isToday = date.Date == currentTime.Date;
+
+            // 2. Lấy dữ liệu cần thiết từ DB cho ngày đã chọn
+            // - Lấy tất cả nhân viên có lịch làm việc (WorkSchedule) trong ngày
+            var workingStaffIds = await _context.WorkSchedules
+                .Where(ws => ws.WorkDate.Date == date.Date && !ws.IsDeleted)
+                .Select(ws => ws.EmployeeId)
+                .ToListAsync();
+
+            // - Lấy tất cả các cuộc hẹn đã có trong ngày (để biết ai bận giờ nào)
+            //   Lưu ý: Cần lấy cả chi tiết để biết thời gian cụ thể của từng task nếu muốn chính xác cao
+            //   Ở đây ta dùng logic đơn giản: Lấy Appointment và các Detail của nó
+            var existingAppointments = await _context.Appointments
+                .Include(a => a.AppointmentDetails)
+                .Where(a => a.StartTime.Date == date.Date && a.Status != "Cancelled" && !a.IsDeleted)
+                .ToListAsync();
+
+            // - Lấy kỹ năng của nhân viên (Ai làm được dịch vụ nào)
+            var technicianSkills = await _context.TechnicianServices
+                .Where(ts => !ts.IsDeleted)
+                .Select(ts => new { ts.EmployeeId, ts.ServiceId })
+                .ToListAsync();
+
+            // 3. Xây dựng bản đồ bận (Busy Intervals) cho từng nhân viên
+            var staffBusyIntervals = new Dictionary<int, List<(TimeSpan Start, TimeSpan End)>>();
+            
+            // Khởi tạo list cho những nhân viên có đi làm
+            foreach (var staffId in workingStaffIds) staffBusyIntervals[staffId] = new List<(TimeSpan, TimeSpan)>();
+
+            foreach (var appt in existingAppointments)
+            {
+                var apptStart = appt.StartTime.TimeOfDay;
+                
+                // Giả định: Các dịch vụ trong 1 appointment diễn ra nối tiếp nhau
+                // Ta cần reconstruct lại timeline của appointment đó
+                var currentTaskStart = apptStart;
+                
+                foreach (var detail in appt.AppointmentDetails.OrderBy(d => d.AppointmentDetailId)) // Sắp xếp để giữ thứ tự
+                {
+                    // Lấy duration từ service gốc (hoặc lưu trong detail nếu có)
+                    // Vì Detail chưa lưu Duration, ta query tạm hoặc giả định đã join (cần tối ưu sau)
+                    // Ở đây để nhanh, ta truy vấn duration từ DB nếu chưa có
+                    var serviceDuration = await _context.Services
+                        .Where(s => s.ServiceId == detail.ServiceId)
+                        .Select(s => s.DurationMinutes)
+                        .FirstOrDefaultAsync();
+
+                    var currentTaskEnd = currentTaskStart.Add(TimeSpan.FromMinutes(serviceDuration));
+
+                    if (detail.TechnicianId.HasValue && staffBusyIntervals.ContainsKey(detail.TechnicianId.Value))
+                    {
+                        staffBusyIntervals[detail.TechnicianId.Value].Add((currentTaskStart, currentTaskEnd));
+                    }
+
+                    currentTaskStart = currentTaskEnd; // Dịch chuyển thời gian cho task sau
+                }
+            }
+
+            // 4. Duyệt qua từng slot thời gian để kiểm tra
+            var availableSlots = new List<string>();
+            var slotDuration = TimeSpan.FromMinutes(15); // Bước nhảy 15p
+
+            for (var time = openTime; time < closeTime; time = time.Add(slotDuration))
+            {
+                // Nếu là hôm nay, bỏ qua các giờ trong quá khứ (+30p buffer)
+                if (isToday && time < currentTime.TimeOfDay.Add(TimeSpan.FromMinutes(30))) continue;
+
+                // Kiểm tra xem SESSION hiện tại có thể đặt vào giờ này không
+                if (await IsSessionFitAsync(time, session, staffBusyIntervals, technicianSkills, closeTime))
+                {
+                    availableSlots.Add(time.ToString(@"hh\:mm"));
+                }
+            }
+
+            return availableSlots;
         }
 
+        // Helper: Kiểm tra xem toàn bộ Session có thể bắt đầu tại thời điểm 'startTime' không
+        private async Task<bool> IsSessionFitAsync(
+            TimeSpan startTime, 
+            BookingSessionModel session, 
+            Dictionary<int, List<(TimeSpan Start, TimeSpan End)>> staffBusyMap,
+            dynamic technicianSkills,
+            TimeSpan shopCloseTime)
+        {
+            // Tạo bản sao của BusyMap để mô phỏng (vì một nhân viên có thể làm cho nhiều người trong Group Booking nếu giờ không trùng)
+            // Tuy nhiên, logic Group Booking thường là làm song song.
+            // Nếu Member 1 làm Service A (60p) với Staff X. Staff X sẽ bận trong 60p đó.
+            // Nếu Member 2 cũng muốn chọn Staff X, phải đợi sau 60p.
+            
+            // Để đơn giản hóa logic kiểm tra tài nguyên:
+            // Chúng ta dùng danh sách "StaffId đã bị chiếm dụng tạm thời trong phiên kiểm tra này"
+            var tempBusyMap = new Dictionary<int, List<(TimeSpan Start, TimeSpan End)>>();
+            
+            // Copy dữ liệu gốc
+            foreach(var kvp in staffBusyMap) 
+                tempBusyMap[kvp.Key] = new List<(TimeSpan, TimeSpan)>(kvp.Value);
+
+            // Duyệt qua từng thành viên trong booking
+            foreach (var member in session.Members)
+            {
+                var memberCurrentTime = startTime;
+
+                foreach (var serviceId in member.SelectedServiceIds)
+                {
+                    var serviceDuration = await _context.Services
+                        .Where(s => s.ServiceId == serviceId)
+                        .Select(s => s.DurationMinutes)
+                        .FirstOrDefaultAsync();
+
+                    var serviceEndTime = memberCurrentTime.Add(TimeSpan.FromMinutes(serviceDuration));
+
+                    // Check 1: Quá giờ đóng cửa?
+                    if (serviceEndTime > shopCloseTime) return false;
+
+                    // Check 2: Tìm nhân viên phù hợp
+                    int? requiredStaffId = null;
+                    if (member.ServiceStaffMap != null && member.ServiceStaffMap.ContainsKey(serviceId))
+                    {
+                        requiredStaffId = member.ServiceStaffMap[serviceId];
+                    }
+
+                    bool foundStaff = false;
+
+                    if (requiredStaffId.HasValue) // Khách chọn đích danh
+                    {
+                        if (IsStaffAvailable(requiredStaffId.Value, memberCurrentTime, serviceEndTime, tempBusyMap))
+                        {
+                            // Đánh dấu nhân viên này bận trong khoảng này (để không bị book trùng bởi member khác trong cùng session)
+                            tempBusyMap[requiredStaffId.Value].Add((memberCurrentTime, serviceEndTime));
+                            foundStaff = true;
+                        }
+                    }
+                    else // Chọn "Bất kỳ ai"
+                    {
+                        // Tìm list nhân viên có kỹ năng làm service này
+                        // Lưu ý: technicianSkills là list anonymous object {EmployeeId, ServiceId}
+                        // Cần cast hoặc query lại nếu dynamic khó dùng
+                        // Ở đây giả sử ta filter trên list in-memory
+                        var skilledStaffIds = new List<int>();
+                        foreach(var item in technicianSkills)
+                        {
+                            if(item.ServiceId == serviceId) skilledStaffIds.Add(item.EmployeeId);
+                        }
+
+                        // Tìm 1 người rảnh
+                        foreach (var staffId in skilledStaffIds)
+                        {
+                            if (IsStaffAvailable(staffId, memberCurrentTime, serviceEndTime, tempBusyMap))
+                            {
+                                tempBusyMap[staffId].Add((memberCurrentTime, serviceEndTime));
+                                foundStaff = true;
+                                break; // Tìm được 1 người là đủ
+                            }
+                        }
+                    }
+
+                    if (!foundStaff) return false; // Không tìm được nhân viên cho dịch vụ này -> Slot này fail
+
+                    // Dịch chuyển thời gian cho dịch vụ tiếp theo của member này
+                    memberCurrentTime = serviceEndTime;
+                }
+            }
+
+            return true; // Tất cả dịch vụ của tất cả thành viên đều xếp được
+        }
+
+        private bool IsStaffAvailable(int staffId, TimeSpan start, TimeSpan end, Dictionary<int, List<(TimeSpan Start, TimeSpan End)>> busyMap)
+        {
+            if (!busyMap.ContainsKey(staffId)) return false; // Nhân viên không đi làm hôm nay
+
+            foreach (var interval in busyMap[staffId])
+            {
+                // Kiểm tra giao nhau (Overlap): (StartA < EndB) and (EndA > StartB)
+                if (start < interval.End && end > interval.Start)
+                {
+                    return false; // Bị trùng
+                }
+            }
+            return true;
+        }
+
+        // --- CÁC PHƯƠNG THỨC KHÁC GIỮ NGUYÊN ---
         public async Task<int> SaveBookingAsync(BookingSessionModel session)
         {
-            // 1. Tạo/Lấy khách hàng
+            // 1. Tạo Customer
             var customer = await _context.Customers.FirstOrDefaultAsync(c => c.PhoneNumber == session.CustomerInfo.Phone);
             if (customer == null)
             {
@@ -78,47 +259,65 @@ namespace SpaBookingWeb.Services.Client
                 await _context.SaveChangesAsync();
             }
 
-            // 2. Tạo Appointment
+            // 2. Tính toán lại tổng thời gian để set EndTime cho Appointment
+            int totalDurationAllMembers = 0;
+            foreach (var m in session.Members)
+            {
+                foreach (var sId in m.SelectedServiceIds)
+                {
+                    var duration = await _context.Services.Where(s => s.ServiceId == sId).Select(s => s.DurationMinutes).FirstOrDefaultAsync();
+                    totalDurationAllMembers += duration;
+                }
+            }
+
+            var appointmentStartTime = session.SelectedDate.Value.Add(session.SelectedTime.Value);
+            
             var appointment = new Appointment
             {
                 CustomerId = customer.CustomerId,
-                StartTime = session.SelectedDate.Value.Add(session.SelectedTime.Value),
-                EndTime = session.SelectedDate.Value.Add(session.SelectedTime.Value).AddMinutes(60),
-                Status = "Pending", // Chờ thanh toán/xác nhận
+                StartTime = appointmentStartTime,
+                EndTime = appointmentStartTime.AddMinutes(totalDurationAllMembers),
+                Status = "Pending",
                 Notes = session.CustomerInfo.Note + (session.IsGroupBooking ? $" [Nhóm {session.Members.Count} người]" : ""),
                 DepositAmount = session.DepositAmount,
-                IsDepositPaid = false, // Mặc định chưa thanh toán cọc
+                IsDepositPaid = false,
                 CreatedDate = DateTime.Now
             };
             _context.Appointments.Add(appointment);
             await _context.SaveChangesAsync();
 
-            // 3. Tạo Appointment Details
+            // 3. Tạo Details & Tự động xếp nhân viên (Logic Assignment thật)
             foreach (var member in session.Members)
             {
+                var currentServiceStartTime = appointmentStartTime;
+
                 foreach (var serviceId in member.SelectedServiceIds)
                 {
-                    // [SỬA LỖI] Lấy giá tiền của dịch vụ để gán vào PriceAtBooking
-                    var servicePrice = await _context.Services
-                        .Where(s => s.ServiceId == serviceId)
-                        .Select(s => s.Price)
-                        .FirstOrDefaultAsync();
+                    var service = await _context.Services.FindAsync(serviceId);
+                    if (service == null) continue;
 
-                    // Xác định nhân viên thực hiện (nếu đã chọn)
-                    int? selectedStaffId = null;
-                    if (member.ServiceStaffMap != null && member.ServiceStaffMap.ContainsKey(serviceId))
+                    int? finalStaffId = null;
+
+                    if (member.ServiceStaffMap != null && member.ServiceStaffMap.ContainsKey(serviceId) && member.ServiceStaffMap[serviceId] != null)
                     {
-                        selectedStaffId = member.ServiceStaffMap[serviceId];
+                        finalStaffId = member.ServiceStaffMap[serviceId];
+                    }
+                    else
+                    {
+                        // Auto Assign (Logic tương tự như đã thảo luận trước đó, nhưng áp dụng cho việc LƯU)
+                        finalStaffId = await AutoAssignStaffAsync(serviceId, currentServiceStartTime, service.DurationMinutes);
                     }
 
                     _context.AppointmentDetails.Add(new AppointmentDetail
                     {
                         AppointmentId = appointment.AppointmentId,
                         ServiceId = serviceId,
-                        TechnicianId = selectedStaffId,
-                        PriceAtBooking = servicePrice, // Biến này giờ đã được khai báo ở trên
+                        TechnicianId = finalStaffId,
+                        PriceAtBooking = service.Price,
                         Status = "Pending"
                     });
+
+                    currentServiceStartTime = currentServiceStartTime.AddMinutes(service.DurationMinutes);
                 }
             }
 
@@ -138,39 +337,52 @@ namespace SpaBookingWeb.Services.Client
             return appointment.AppointmentId;
         }
 
-        // [MỚI] Cập nhật trạng thái sau khi thanh toán thành công
+        private async Task<int?> AutoAssignStaffAsync(int serviceId, DateTime startTime, int durationMinutes)
+        {
+            var endTime = startTime.AddMinutes(durationMinutes);
+            var qualifiedStaffIds = await _context.TechnicianServices.Where(ts => ts.ServiceId == serviceId && !ts.IsDeleted).Select(ts => ts.EmployeeId).ToListAsync();
+            if (!qualifiedStaffIds.Any()) return null;
+
+            var workingStaffIds = await _context.WorkSchedules
+                .Where(ws => qualifiedStaffIds.Contains(ws.EmployeeId) && ws.WorkDate.Date == startTime.Date && !ws.IsDeleted)
+                .Select(ws => ws.EmployeeId).ToListAsync();
+            if (!workingStaffIds.Any()) return null;
+
+            var busyStaffIds = await _context.AppointmentDetails
+                .Include(ad => ad.Appointment)
+                .Where(ad => workingStaffIds.Contains(ad.TechnicianId.Value) && ad.Status != "Cancelled" && ad.Status != "Completed" 
+                             && ad.Appointment.StartTime < endTime && ad.Appointment.EndTime > startTime) 
+                .Select(ad => ad.TechnicianId.Value).ToListAsync();
+
+            var availableCandidates = workingStaffIds.Except(busyStaffIds).ToList();
+            if (!availableCandidates.Any()) return null;
+
+            var workloadStats = await _context.AppointmentDetails
+                .Include(ad => ad.Appointment)
+                .Where(ad => availableCandidates.Contains(ad.TechnicianId.Value) && ad.Appointment.StartTime.Date == startTime.Date)
+                .GroupBy(ad => ad.TechnicianId)
+                .Select(g => new { StaffId = g.Key, Count = g.Count() }).ToListAsync();
+
+            return availableCandidates.OrderBy(id => workloadStats.FirstOrDefault(w => w.StaffId == id)?.Count ?? 0).ThenBy(x => Guid.NewGuid()).FirstOrDefault();
+        }
+
         public async Task UpdateDepositStatusAsync(int appointmentId, string transactionId)
         {
             var appointment = await _context.Appointments.FindAsync(appointmentId);
             if (appointment != null)
             {
-                // Cập nhật trạng thái Appointment
                 appointment.IsDepositPaid = true;
-                appointment.Status = "Confirmed"; // Đã cọc -> Xác nhận luôn
-
-                // Cập nhật Invoice & Tạo Payment log
+                appointment.Status = "Confirmed";
                 var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.AppointmentId == appointmentId);
                 if (invoice != null)
                 {
                     invoice.PaymentStatus = "DepositPaid";
-
-                    // Lưu lịch sử giao dịch
-                    _context.Payments.Add(new Payment
-                    {
-                        InvoiceId = invoice.InvoiceId,
-                        Amount = appointment.DepositAmount,
-                        PaymentMethod = "Momo",
-                        TransactionType = "Deposit", // Loại giao dịch: Đặt cọc
-                        PaymentDate = DateTime.Now
-                        // Bạn có thể lưu transactionId của MoMo vào trường ghi chú nếu muốn
-                    });
+                    _context.Payments.Add(new Payment { InvoiceId = invoice.InvoiceId, Amount = appointment.DepositAmount, PaymentMethod = "Momo", TransactionType = "Deposit", PaymentDate = DateTime.Now });
                 }
-
                 await _context.SaveChangesAsync();
             }
         }
 
-        // [MỚI] Lấy dữ liệu hiển thị trang Success
         public async Task<AppointmentSuccessViewModel> GetAppointmentSuccessInfoAsync(int appointmentId)
         {
             var app = await _context.Appointments
@@ -187,10 +399,10 @@ namespace SpaBookingWeb.Services.Client
                 AppointmentId = app.AppointmentId,
                 CustomerName = app.Customer.FullName,
                 TimeSlot = $"{app.StartTime:HH:mm} - {app.StartTime:ddd, dd/MM}",
-                Services = app.AppointmentDetails.Select(ad => new ServiceSuccessItem
-                {
+                Services = app.AppointmentDetails.Select(ad => new ServiceSuccessItem 
+                { 
                     ServiceName = ad.Service?.ServiceName,
-                    StaffName = ad.Technician?.FullName ?? "Bất kỳ ai",
+                    StaffName = ad.Technician?.FullName ?? "Hệ thống tự chọn",
                     Duration = ad.Service?.DurationMinutes ?? 0,
                     Price = ad.PriceAtBooking
                 }).ToList(),
