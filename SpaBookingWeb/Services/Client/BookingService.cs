@@ -153,10 +153,7 @@ namespace SpaBookingWeb.Services.Client
             // Tạo bản sao của BusyMap để mô phỏng (vì một nhân viên có thể làm cho nhiều người trong Group Booking nếu giờ không trùng)
             // Tuy nhiên, logic Group Booking thường là làm song song.
             // Nếu Member 1 làm Service A (60p) với Staff X. Staff X sẽ bận trong 60p đó.
-            // Nếu Member 2 cũng muốn chọn Staff X, phải đợi sau 60p.
-            
-            // Để đơn giản hóa logic kiểm tra tài nguyên:
-            // Chúng ta dùng danh sách "StaffId đã bị chiếm dụng tạm thời trong phiên kiểm tra này"
+            // Nếu Member 2 cũng muốn chọn Staff X, phải đợi sau 60p 
             var tempBusyMap = new Dictionary<int, List<(TimeSpan Start, TimeSpan End)>>();
             
             // Copy dữ liệu gốc
@@ -410,6 +407,140 @@ namespace SpaBookingWeb.Services.Client
                 DepositAmount = app.DepositAmount,
                 IsDepositPaid = app.IsDepositPaid
             };
+        }
+
+        public async Task<List<AppointmentHistoryViewModel>> GetBookingHistoryAsync(string userEmail)
+        {
+            // 1. Tìm Customer theo Email
+            var customer = await _context.Customers.FirstOrDefaultAsync(c => c.Email == userEmail);
+            if (customer == null) return new List<AppointmentHistoryViewModel>();
+
+            // 2. Lấy danh sách Appointment
+            var appointments = await _context.Appointments
+                .Include(a => a.AppointmentDetails).ThenInclude(ad => ad.Service)
+                .Include(a => a.AppointmentDetails).ThenInclude(ad => ad.Technician)
+                .Include(a => a.Invoice)
+                .Where(a => a.CustomerId == customer.CustomerId)
+                .OrderByDescending(a => a.StartTime) // Mới nhất lên đầu
+                .ToListAsync();
+
+            // 3. Map sang ViewModel
+            var result = appointments.Select(a => new AppointmentHistoryViewModel
+            {
+                AppointmentId = a.AppointmentId,
+                StartTime = a.StartTime,
+                EndTime = a.EndTime,
+                Status = a.Status, // Pending, Confirmed, Cancelled
+                IsDepositPaid = a.IsDepositPaid,
+                TotalAmount = a.Invoice != null ? a.Invoice.TotalAmount : 0,
+                DepositAmount = a.DepositAmount,
+                // Map services
+                Services = a.AppointmentDetails.Select(ad => new ServiceDetailViewModel
+                {
+                    ServiceName = ad.Service?.ServiceName ?? "Dịch vụ",
+                    Duration = ad.Service?.DurationMinutes ?? 0,
+                    Price = ad.PriceAtBooking,
+                    StaffName = ad.Technician?.FullName ?? "Chưa phân công",
+                    StaffAvatar = ad.Technician?.Avatar ?? "/img/default-avatar.png"
+                }).ToList()
+            }).ToList();
+
+            return result;
+        }
+
+        public async Task<AppointmentHistoryViewModel> GetAppointmentDetailAsync(int appointmentId)
+        {
+            var appointment = await _context.Appointments
+                .Include(a => a.AppointmentDetails).ThenInclude(ad => ad.Service)
+                .Include(a => a.AppointmentDetails).ThenInclude(ad => ad.Technician)
+                .Include(a => a.Invoice)
+                .FirstOrDefaultAsync(a => a.AppointmentId == appointmentId);
+
+            if (appointment == null) return null;
+
+            return new AppointmentHistoryViewModel
+            {
+                AppointmentId = appointment.AppointmentId,
+                StartTime = appointment.StartTime,
+                EndTime = appointment.EndTime,
+                Status = appointment.Status,
+                IsDepositPaid = appointment.IsDepositPaid,
+                TotalAmount = appointment.Invoice != null ? appointment.Invoice.TotalAmount : 0,
+                DepositAmount = appointment.DepositAmount,
+                Services = appointment.AppointmentDetails.Select(ad => new ServiceDetailViewModel
+                {
+                    ServiceName = ad.Service?.ServiceName ?? "Dịch vụ",
+                    Duration = ad.Service?.DurationMinutes ?? 0,
+                    Price = ad.PriceAtBooking,
+                    StaffName = ad.Technician?.FullName ?? "Chưa phân công",
+                    StaffAvatar = ad.Technician?.Avatar ?? "/img/default-avatar.png"
+                }).ToList()
+            };
+        }
+
+        // [MỚI] Lấy lịch sử Đã xong/Hủy
+        public async Task<List<AppointmentHistoryViewModel>> GetBookingHistoryArchiveAsync(string userEmail)
+        {
+            var customer = await _context.Customers.FirstOrDefaultAsync(c => c.Email == userEmail);
+            if (customer == null) return new List<AppointmentHistoryViewModel>();
+
+            var appointments = await _context.Appointments
+                .Include(a => a.AppointmentDetails).ThenInclude(ad => ad.Service)
+                .Include(a => a.AppointmentDetails).ThenInclude(ad => ad.Technician)
+                .Include(a => a.Invoice)
+                .Where(a => a.CustomerId == customer.CustomerId 
+                            && (a.Status == "Completed" || a.Status == "Cancelled")) // Lọc trạng thái
+                .OrderByDescending(a => a.StartTime)
+                .ToListAsync();
+
+            return appointments.Select(a => new AppointmentHistoryViewModel
+            {
+                AppointmentId = a.AppointmentId,
+                StartTime = a.StartTime,
+                EndTime = a.EndTime,
+                Status = a.Status,
+                TotalAmount = a.Invoice?.TotalAmount ?? 0,
+                Services = a.AppointmentDetails.Select(ad => new ServiceDetailViewModel
+                {
+                    ServiceName = ad.Service?.ServiceName ?? "Dịch vụ",
+                    Duration = ad.Service?.DurationMinutes ?? 0,
+                    Price = ad.PriceAtBooking,
+                    StaffName = ad.Technician?.FullName ?? "Không xác định",
+                    StaffAvatar = ad.Technician?.Avatar
+                }).ToList()
+            }).ToList();
+        }
+
+        // [MỚI] Logic Đặt lại (Re-book)
+        public async Task<bool> RebookAsync(int appointmentId)
+        {
+            var oldAppt = await _context.Appointments
+                .Include(a => a.AppointmentDetails)
+                .FirstOrDefaultAsync(a => a.AppointmentId == appointmentId);
+            
+            if (oldAppt == null) return false;
+
+            // Tạo session mới từ thông tin cũ
+            var session = new BookingSessionModel
+            {
+                IsGroupBooking = false, // Mặc định về cá nhân
+                Members = new List<BookingMember> 
+                { 
+                    new BookingMember 
+                    { 
+                        MemberIndex = 1, 
+                        Name = "Tôi",
+                        SelectedServiceIds = oldAppt.AppointmentDetails
+                                            .Where(d => d.ServiceId.HasValue)
+                                            .Select(d => d.ServiceId.Value)
+                                            .ToList()
+                    } 
+                }
+            };
+            
+            // Lưu session và sẵn sàng chuyển hướng sang Step 2
+            SaveSession(session);
+            return true;
         }
     }
 }

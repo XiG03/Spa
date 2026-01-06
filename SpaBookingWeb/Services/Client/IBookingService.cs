@@ -23,6 +23,16 @@ namespace SpaBookingWeb.Services.Client
         Task UpdateDepositStatusAsync(int appointmentId, string transactionId);
         // [MỚI] Lấy thông tin Appointment để hiển thị trang Success
         Task<AppointmentSuccessViewModel> GetAppointmentSuccessInfoAsync(int appointmentId);
-        
+
+        Task<List<AppointmentHistoryViewModel>> GetBookingHistoryAsync(string userEmail);
+
+        Task<AppointmentHistoryViewModel> GetAppointmentDetailAsync(int appointmentId);
+
+        // [MỚI] Lấy lịch sử (Hoàn thành/Hủy)
+        Task<List<AppointmentHistoryViewModel>> GetBookingHistoryArchiveAsync(string userEmail);
+
+        // [MỚI] Tái tạo session từ đơn hàng cũ (Đặt lại)
+        Task<bool> RebookAsync(int appointmentId);
+
     }
 }

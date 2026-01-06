@@ -13,6 +13,7 @@ using SpaBookingWeb.Hubs;
 using SpaBookingWeb.Services.Client;
 using Microsoft.AspNetCore.Session;
 using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,10 +47,43 @@ builder.Services.AddAuthentication(options =>
     options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
     options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
     options.SaveTokens = true;
+
+    options.Events = new Microsoft.AspNetCore.Authentication.OAuth.OAuthEvents
+    {
+        OnRemoteFailure = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("GoogleAuth");
+            logger.LogWarning("Google OnRemoteFailure: {Failure}, Query={Query}, Cookies={Cookies}",
+                context.Failure?.Message, context.Request?.QueryString.Value, context.Request?.Cookies != null ? string.Join(", ", context.Request.Cookies.Keys) : "(no cookies)");
+            context.HandleResponse();
+            return Task.CompletedTask;
+        },
+        OnCreatingTicket = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("GoogleAuth");
+            logger.LogInformation("Google OnCreatingTicket: Name={Name}, Claims={ClaimsCount}",
+                context.Principal?.Identity?.Name, context.Principal?.Claims?.Count());
+            return Task.CompletedTask;
+        }
+    };
 });
 
 
 
+
+// Ensure external and application cookies are allowed in cross-site OAuth flows
+builder.Services.ConfigureExternalCookie(options =>
+{
+    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
 
 //Services Injection for Manager
 builder.Services.AddScoped<ICustomerService, CustomerService>();
@@ -106,7 +140,7 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.UseDeveloperExceptionPage(); // 🔥 BẮT BUỘC
+    app.UseDeveloperExceptionPage(); 
     app.UseMigrationsEndPoint();
 }
 else
@@ -123,6 +157,7 @@ app.UseRouting();
 
 app.UseSession();
 
+app.UseCookiePolicy();
 
 app.UseAuthentication();
 app.UseAuthorization();
