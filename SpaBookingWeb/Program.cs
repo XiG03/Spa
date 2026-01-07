@@ -23,6 +23,24 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
+// Cấu hình Cookie Policy đơn giản nhất đễ fix lỗi Google login trên Localhost
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    // Yêu cầu sự đồng ý cookie cơ bản
+    options.CheckConsentNeeded = context => false; 
+    options.MinimumSameSitePolicy = SameSiteMode.None; // QUAN TRỌNG: Cho phép cross-site
+    options.Secure = CookieSecurePolicy.Always; // QUAN TRỌNG: Google yêu cầu HTTPS
+});
+
+// Cấu hình cụ thể cho Cookie của Identity (External)
+builder.Services.ConfigureExternalCookie(options =>
+{
+    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true; // Bắt buộc cho login
+});            
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.Password.RequireNonAlphanumeric = false;
@@ -35,13 +53,10 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     options.SignIn.RequireConfirmedPhoneNumber = false;
 })
     .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddRoles<IdentityRole>() // Thêm dòng này
     .AddDefaultTokenProviders();
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = IdentityConstants.ApplicationScheme;
-    options.DefaultSignInScheme = IdentityConstants.ApplicationScheme;
-    options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
-})
+// Không ghi đè DefaultSignInScheme để Identity tự quản lý (External vs Application)
+builder.Services.AddAuthentication()
 .AddGoogle(options =>
 {
     options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
@@ -71,19 +86,18 @@ builder.Services.AddAuthentication(options =>
 
 
 
-// Ensure external and application cookies are allowed in cross-site OAuth flows
-builder.Services.ConfigureExternalCookie(options =>
-{
-    options.Cookie.SameSite = SameSiteMode.None;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-});
+// Đã xóa block cũ để tránh trùng lặp
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.LoginPath = "/Account/Login"; // Đường dẫn đăng nhập
+    options.AccessDeniedPath = "/Account/AccessDenied";
 });
+
+// (Đã xóa block ConfigureApplicationCookie bị lặp)
 
 //Services Injection for Manager
 builder.Services.AddScoped<ICustomerService, CustomerService>();
@@ -192,14 +206,14 @@ using (var scope = app.Services.CreateScope())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
+app.UseCookiePolicy(); // Chuyển lên đây
+
 app.UseRouting();
-
-app.UseSession();
-
-app.UseCookiePolicy();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseSession(); // Session thường để sau cùng hoặc trước Auth tùy nhu cầu, nhưng sau Auth là an toàn cho dữ liệu user.
 
 app.UseStatusCodePagesWithReExecute("/Error/{0}");
 
