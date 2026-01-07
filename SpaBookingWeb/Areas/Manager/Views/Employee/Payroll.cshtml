@@ -1,0 +1,101 @@
+﻿@model IEnumerable<SpaBookingWeb.ViewModels.Manager.SalaryPayrollViewModel>
+
+@{
+    ViewData["Title"] = "Bảng lương nhân viên";
+    Layout = "~/Areas/Manager/Views/Shared/_Layout.cshtml";
+    int currentMonth = ViewBag.Month;
+    int currentYear = ViewBag.Year;
+}
+
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Bảng lương tháng @currentMonth/@currentYear</h1>
+        
+        <!-- Filter Form -->
+        <form asp-action="Payroll" method="get" class="form-inline bg-white p-2 rounded shadow-sm">
+            <select name="month" class="form-control mr-2">
+                @for (int i = 1; i <= 12; i++)
+                {
+                    if (i == currentMonth) { <option value="@i" selected>Tháng @i</option> }
+                    else { <option value="@i">Tháng @i</option> }
+                }
+            </select>
+            <input type="number" name="year" class="form-control mr-2" value="@currentYear" style="width: 100px;" />
+            <button type="submit" class="btn btn-primary">Xem bảng lương</button>
+        </form>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>Nhân viên</th>
+                            <th>Giờ công</th>
+                            <th>Lương cứng</th>
+                            <th>Hoa hồng</th>
+                            <th>Thưởng/Phạt</th>
+                            <th>Tổng thực nhận</th>
+                            <th>Trạng thái</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td class="font-weight-bold">@item.EmployeeName</td>
+                                <td>@item.TotalWorkHours giờ</td>
+                                <td>@item.BaseSalary.ToString("N0")</td>
+                                <td class="text-success">+@item.TotalCommission.ToString("N0")</td>
+                                <td>
+                                    @if(item.Bonus > 0) { <span class="text-success">+@item.Bonus.ToString("N0")</span><br/> }
+                                    @if(item.Deduction > 0) { <span class="text-danger">-@item.Deduction.ToString("N0")</span> }
+                                </td>
+                                <td class="font-weight-bold text-primary h5">@item.FinalSalary.ToString("N0")</td>
+                                <td>
+                                    @if (item.Status == "Draft")
+                                    {
+                                        <span class="badge badge-secondary">Dự thảo</span>
+                                    }
+                                    else if (item.Status == "ManagerConfirmed")
+                                    {
+                                        <span class="badge badge-warning">Chờ NV xác nhận</span>
+                                    }
+                                    else if (item.Status == "Completed")
+                                    {
+                                        <span class="badge badge-success"><i class="fas fa-check-circle"></i> Hoàn tất</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (item.Status == "Draft")
+                                    {
+                                        <form asp-action="ConfirmSalary" method="post" onsubmit="return confirm('Xác nhận gửi bảng lương này cho nhân viên?');">
+                                            <input type="hidden" name="employeeId" value="@item.EmployeeId" />
+                                            <input type="hidden" name="month" value="@item.Month" />
+                                            <input type="hidden" name="year" value="@item.Year" />
+                                            <input type="hidden" name="finalAmount" value="@item.FinalSalary" />
+                                            
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-paper-plane"></i> Gửi cho NV
+                                            </button>
+                                        </form>
+                                    }
+                                    else if (item.Status == "ManagerConfirmed")
+                                    {
+                                        <button class="btn btn-sm btn-light text-muted" disabled><i class="fas fa-clock"></i> Đã gửi</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-success" disabled><i class="fas fa-check"></i> Đã xong</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

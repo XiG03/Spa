@@ -1,0 +1,139 @@
+﻿@model SpaBookingWeb.ViewModels.Manager.DailyScheduleViewModel
+
+@{
+    ViewData["Title"] = "Lịch làm việc & Điểm danh";
+    Layout = "~/Areas/Manager/Views/Shared/_Layout.cshtml";
+    var currentDate = Model.Date;
+}
+
+<div class="container-fluid">
+    <!-- Header: Chọn ngày -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Lịch làm việc ngày @currentDate.ToString("dd/MM/yyyy")</h1>
+        
+        <form asp-action="Schedule" method="get" class="form-inline">
+            <div class="input-group">
+                <input type="date" name="date" class="form-control" value="@currentDate.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+                <div class="input-group-append">
+                    <button class="btn btn-primary" type="submit"><i class="fas fa-calendar"></i> Xem</button>
+                </div>
+            </div>
+        </form>
+        
+        <button class="btn btn-success shadow-sm ml-3" data-toggle="modal" data-target="#assignShiftModal">
+            <i class="fas fa-plus"></i> Xếp lịch làm việc
+        </button>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+
+    <!-- Hiển thị các Ca làm việc -->
+    <div class="row">
+        @foreach (var shift in Model.Shifts)
+        {
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow h-100">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            Ca: @shift.ShiftName <span class="badge badge-secondary ml-2">@shift.TimeRange</span>
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        @if (shift.Schedules.Count == 0)
+                        {
+                            <p class="text-muted text-center my-3">Chưa có nhân viên nào trong ca này.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Nhân viên</th>
+                                            <th class="text-center">Điểm danh</th>
+                                            <th class="text-right">Hủy</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var emp in shift.Schedules)
+                                        {
+                                            <tr>
+                                                <td class="align-middle">@emp.EmployeeName</td>
+                                                <td class="align-middle text-center">
+                                                    <!-- Form Điểm danh nhỏ gọn -->
+                                                    <form asp-action="UpdateAttendance" method="post">
+                                                        <input type="hidden" name="scheduleId" value="@emp.ScheduleId" />
+                                                        <input type="hidden" name="returnDate" value="@currentDate.ToString("yyyy-MM-dd")" />
+                                                        <input type="hidden" name="note" value="" />
+                                                        
+                                                        <div class="custom-control custom-switch">
+                                                            <input type="checkbox" class="custom-control-input" id="check_@emp.ScheduleId" 
+                                                                   name="isPresent" value="true" @(emp.IsPresent ? "checked" : "")
+                                                                   onchange="this.form.submit()">
+                                                            <label class="custom-control-label" for="check_@emp.ScheduleId">
+                                                                @(emp.IsPresent ? "Có mặt" : "Vắng")
+                                                            </label>
+                                                        </div>
+                                                    </form>
+                                                </td>
+                                                <td class="align-middle text-right">
+                                                    <form asp-action="DeleteSchedule" method="post" onsubmit="return confirm('Hủy lịch làm việc của nhân viên này?');">
+                                                        <input type="hidden" name="scheduleId" value="@emp.ScheduleId" />
+                                                        <input type="hidden" name="returnDate" value="@currentDate.ToString("yyyy-MM-dd")" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal Xếp lịch -->
+<div class="modal fade" id="assignShiftModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Thêm nhân viên vào ca</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form asp-action="AssignShift" method="post">
+                <div class="modal-body">
+                    <input type="hidden" name="date" value="@currentDate.ToString("yyyy-MM-dd")" />
+                    
+                    <div class="form-group">
+                        <label>Chọn Nhân viên</label>
+                        <select name="employeeId" class="form-control" asp-items="ViewBag.Employees"></select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Chọn Ca làm việc</label>
+                        <select name="shiftId" class="form-control" asp-items="ViewBag.Shifts"></select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-primary">Lưu lịch</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
